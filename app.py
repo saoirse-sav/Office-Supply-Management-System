@@ -70,6 +70,66 @@ def toggle_category(category_id):
     conn.close() 
     return redirect('/categories')
 
+@app.route('/units') 
+def units(): 
+    conn = get_connection() 
+    cursor = conn.cursor(dictionary=True) 
+    search = request.args.get('search', '') 
+    if search: 
+        cursor.execute('SELECT * FROM units WHERE unit_name LIKE %s', ('%' + search + '%',)) 
+    else: cursor.execute('SELECT * FROM units') 
+    all_units = cursor.fetchall() 
+    conn.close() 
+    return render_template('units.html', units=all_units) 
+
+@app.route('/units/add', methods=['GET', 'POST']) 
+def add_unit(): 
+    if request.method == 'POST': 
+        name = request.form['unit_name'] 
+        conn = get_connection() 
+        cursor = conn.cursor() 
+        cursor.execute('INSERT INTO units (unit_name) VALUES (%s)', (name,)) 
+        conn.commit() 
+        conn.close() 
+        return redirect('/units')   
+    return render_template('add_unit.html') 
+
+@app.route('/units/edit/<int:unit_id>', methods=['GET', 'POST']) 
+def edit_unit(unit_id): 
+    conn = get_connection() 
+    cursor = conn.cursor(dictionary=True) 
+    if request.method == 'POST': 
+        name = request.form['unit_name'] 
+        cursor.execute('UPDATE units SET unit_name=%s WHERE unit_id=%s', (name, unit_id)) 
+        conn.commit() 
+        conn.close() 
+        return redirect('/units') 
+    cursor.execute('SELECT * FROM units WHERE unit_id=%s', (unit_id,)) 
+    unit = cursor.fetchone() 
+    conn.close() 
+    return render_template('edit_unit.html', unit=unit) 
+
+@app.route('/units/delete/<int:unit_id>') 
+def delete_unit(unit_id): 
+    conn = get_connection() 
+    cursor = conn.cursor() 
+    cursor.execute('DELETE FROM units WHERE unit_id=%s', (unit_id,)) 
+    conn.commit() 
+    conn.close() 
+    return redirect('/units') 
+
+@app.route('/units/toggle/<int:unit_id>') 
+def toggle_unit(unit_id): 
+    conn = get_connection() 
+    cursor = conn.cursor(dictionary=True) 
+    cursor.execute('SELECT status FROM units WHERE unit_id=%s', (unit_id,)) 
+    current = cursor.fetchone() 
+    new_status = 'Inactive' if current['status'] == 'Active' else 'Active' 
+    cursor.execute('UPDATE units SET status=%s WHERE unit_id=%s', (new_status, unit_id)) 
+    conn.commit() 
+    conn.close() 
+    return redirect('/units')
+
 
 
 

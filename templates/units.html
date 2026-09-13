@@ -1,0 +1,30 @@
+<!DOCTYPE html> 
+<html> 
+    <head> 
+        <title>Units of Measurement</title> 
+    </head> 
+    <body> 
+        <h1>Units of Measurement</h1> 
+        <form method="GET"> 
+            <input type="text" name="search" placeholder="Search by unit name" value="{{ request.args.get('search', '') }}"> 
+            <button type="submit">Search</button> 
+            <a href="/units">Clear</a> </form> <br>
+            <a href="/units/add">Add New Unit</a>
+             <table border="1"> 
+                <tr> 
+                    <th>ID</th>
+                    <th>Unit Name</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr> 
+                {% for unit in units %} 
+                <tr> 
+                    <td>{{ unit.unit_id }}</td> 
+                    <td>{{ unit.unit_name }}</td> 
+                    <td>{{ unit.status }}</td> 
+                    <td><a href="/units/edit/{{ unit.unit_id }}">Edit</a> | <a href="/units/delete/{{ unit.unit_id }}" onclick="return confirm('Are you sure you want to delete this unit?')">Delete</a> | <a href="/units/toggle/{{ unit.unit_id }}">{% if unit.status == 'Active' %}Deactivate{% else %}Activate{% endif %}</a></td>
+                 </tr> 
+                 {% endfor %} 
+                </table> 
+            </body> 
+            </html>

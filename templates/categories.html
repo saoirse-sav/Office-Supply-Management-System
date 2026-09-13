@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+ <html>
+     <head>
+         <title>Supply Categories</title> 
+        </head> 
+        <body> 
+            <h1>Supply Categories</h1>
+            <form method="GET"> 
+                <input type="text" name="search" placeholder="Search by category name" value="{{ request.args.get('search', '') }}"> 
+                <button type="submit">Search</button> <a href="/categories">Clear</a> 
+            </form>
+             <table border="1"> 
+                <tr> 
+                    <th>ID</th>
+                     <th>Category Name</th>
+                      <th>Description</th>
+                       <th>Status</th>
+                       <th>Action</th> 
+                    </tr> 
+                    {% for category in categories %} 
+                    <tr> 
+                        <td>{{ category.category_id }}</td> 
+                        <td>{{ category.category_name }}</td> 
+                        <td>{{ category.description }}</td> 
+                        <td>{{ category.status }}</td>
+                        <td><a href="/categories/edit/{{ category.category_id }}">Edit</a></td>
+                         <td><a href="/categories/edit/{{ category.category_id }}">Edit</a> | <a href="/categories/delete/{{ category.category_id }}" onclick="return confirm('Are you sure you want to delete this category?')">Delete</a> | <a href="/categories/toggle/{{ category.category_id }}">{% if category.status == 'Active' %}Deactivate{% else %}Activate{% endif %}</a></td>
+
+                     </tr>
+                      {% endfor %} 
+                    </table>
+                 </body> 
+                 </html>

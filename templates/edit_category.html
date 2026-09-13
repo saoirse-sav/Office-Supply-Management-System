@@ -1,0 +1,18 @@
+<!DOCTYPE html> 
+<html> 
+    <head> 
+        <title>Edit Category</title> 
+    </head> 
+    <body> 
+        <h1>Edit Supply Category</h1> 
+        <form method="POST"> 
+            <label>Category Name:</label><br> 
+            <input type="text" name="category_name" value="{{ category.category_name }}" required><br><br> 
+            <label>Description:</label><br> 
+            <textarea name="description">{{ category.description }}</textarea><br><br> 
+            <button type="submit">Update Category</button> 
+        </form> 
+        <br> 
+        <a href="/categories">Back to Categories List</a> 
+    </body> 
+    </html>

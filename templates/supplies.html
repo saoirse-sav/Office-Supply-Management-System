@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Supplies</title>
+    </head>
+    <body>
+        <h1>Supply Master List</h1>
+        <a href="/supplies/add">Add New Supply</a>
+        <table border="1">
+            <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Unit</th>
+                <th>Brand</th>
+                <th>Reorder Level</th>
+                <th>Max Stock</th>
+                <th>Unit Cost</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+            {% for supplies in supplies%}
+            <tr>
+                <td>{{supply.supply.code}}</td>
+                <td>{{supply.category_name}}</td>
+                <td>{{supply.unit_name}}</td>
+                <td>{{supply.brand}}</td>
+                <td>{{supply.reorder_level}}</td>
+                <td>{{supply.maximum_stock}}</td>
+                <td>{{supply.unit_cost}}</td>
+                <td>{{supply.status}}</td>
+                <td>{{supply.action}}</td>
+                <td><a href="supplies/edit/{{supply.supply_id}}">Edit</a> | <a href="supplies/delete/{{supply.supply_id}}" onclick="return confirm('Are you sure you want to delete this supply?')">Delete</a></td>
+            </tr>
+            {%endfor%}
+        </table>
+    </body>
+</html>

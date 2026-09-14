@@ -130,8 +130,41 @@ def toggle_unit(unit_id):
     conn.close() 
     return redirect('/units')
 
+@app.route('/supplies')
+def supplies():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute('SELECT supplies.*, supply_categories.category_name, units.unit_name FROM supplies LEFT JOIN supply_categories ON supplies.category_id = supply_categories.category_id LEFT JOIN units ON supplies.unit_id = units.unit_id')
+    all_supplies = cursor.fetchall()
+    conn.close()
+    return render_template('supplies.html', supplies=all_supplies)
+
+@app.route('/supplies/add', methods=['GET', 'POST'])
+def add_supply():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    if request.method == 'POST':
+        code = request.form['supply_code']
+        name = request.form['supply_name']
+        category_id = request.form['category_id']
+        description = request.form['description']
+        unit_id = request.form['unit_id']
+        brand = request.form['brand']
+        reorder_level = request.form['reorder_level']
+        maximum_stock = request.form['maximum_stock']
+        unit_cost = request.form['unit_cost']
+        cursor.execute('INSERT INTO supplies (supply_code, supply_name, category_id, description, unit_id, brand, reorder_level, maximum_stock, unit_cost) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)', (code, name, category_id, description, unit_id, brand, reorder_level, maximum_stock, unit_cost))
+        conn.commit()
+        conn.close()
+        return redirect('/supplies')
+    cursor.execute('SELECT * FROM supply_categories')
+    category_list = cursor.fetchall()
+    cursor.execute('SELECT * FROM units')
+    unit_list = cursor.fetchall()
+    conn.close()
+    return render_template('add_supply.html',categories=category_list, units=unit_list)
 
 
-
+      
 if __name__ == '__main__':  
     app.run(debug=True)

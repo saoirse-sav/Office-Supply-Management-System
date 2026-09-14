@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Add Supply</title>
+    </head>
+    <body>
+        <h1>Register New Supply</h1>
+        <form method = "POST">
+            <label>Supply Code:</label><br>
+            <input type="text" name="supply_code" required><br>
+            <label>Supply Name:</label>
+            <input type="text" name="supply_name" required><br>
+            <label>Category:</label><br>
+            <select name="category_id" required>
+            {% category in categories %}
+            <option value="{{category.category_id}}">{{category.category_name}}</option>
+            {% end for %}
+            </select>
+            <br><br>
+            <label>Description:</label>
+        </form>
+    </body>
+</html>

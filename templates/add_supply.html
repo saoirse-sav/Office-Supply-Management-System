@@ -6,18 +6,39 @@
     <body>
         <h1>Register New Supply</h1>
         <form method = "POST">
+            {% if error %}
+            <p style="color:red">{{error}}</p>
+            {% endif %}
             <label>Supply Code:</label><br>
             <input type="text" name="supply_code" required><br>
             <label>Supply Name:</label>
             <input type="text" name="supply_name" required><br>
             <label>Category:</label><br>
             <select name="category_id" required>
-            {% category in categories %}
+            {% for category in categories %}
             <option value="{{category.category_id}}">{{category.category_name}}</option>
-            {% end for %}
+            {% endfor %}
             </select>
             <br><br>
-            <label>Description:</label>
-        </form>
+            <label>Description:</label><br> 
+            <textarea name="description"></textarea><br><br>
+            <label>Unit:</label><br> 
+            <select name="unit_id" required> 
+                {% for unit in units %} 
+                <option value="{{ unit.unit_id }}">{{ unit.unit_name }}</option> 
+                {% endfor %} 
+            </select><br><br> 
+            <label>Brand:</label><br> 
+            <input type="text" name="brand"><br><br> 
+            <label>Reorder Level:</label><br> 
+            <input type="number" name="reorder_level" value="0"><br><br> 
+            <label>Maximum Stock:</label><br> 
+            <input type="number" name="maximum_stock" value="0"><br><br> 
+            <label>Unit Cost:</label><br> 
+            <input type="number" step="0.01" name="unit_cost" value="0"><br><br> 
+            <button type="submit">Save Supply</button> 
+        </form> 
+        <br> 
+        <a href="/supplies">Back to Supplies List</a> 
     </body>
 </html>

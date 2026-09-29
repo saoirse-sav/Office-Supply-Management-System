@@ -134,7 +134,14 @@ def toggle_unit(unit_id):
 def supplies():
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute('SELECT supplies.*, supply_categories.category_name, units.unit_name FROM supplies LEFT JOIN supply_categories ON supplies.category_id = supply_categories.category_id LEFT JOIN units ON supplies.unit_id = units.unit_id')
+    search = request.args.get('search','')
+    base_query = 'SELECT supplies.*, supply_categories.category_name, units.unit_name FROM supplies LEFT JOIN supply_categories ON supplies.category_id = supply_categories.category_id LEFT JOIN units ON supplies.unit_id = units.unit_id' 
+    if search: 
+        base_query += ' WHERE supplies.supply_code LIKE %s OR supplies.supply_name LIKE %s OR supply_categories.category_name LIKE %s OR supplies.brand LIKE %s' 
+        search_term = '%' + search + '%' 
+        cursor.execute(base_query, (search_term, search_term, search_term, search_term)) 
+    else: 
+        cursor.execute(base_query)
     all_supplies = cursor.fetchall()
     conn.close()
     return render_template('supplies.html', supplies=all_supplies)
@@ -143,6 +150,7 @@ def supplies():
 def add_supply():
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
+    error = None
     if request.method == 'POST':
         code = request.form['supply_code']
         name = request.form['supply_name']
@@ -153,18 +161,59 @@ def add_supply():
         reorder_level = request.form['reorder_level']
         maximum_stock = request.form['maximum_stock']
         unit_cost = request.form['unit_cost']
-        cursor.execute('INSERT INTO supplies (supply_code, supply_name, category_id, description, unit_id, brand, reorder_level, maximum_stock, unit_cost) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)', (code, name, category_id, description, unit_id, brand, reorder_level, maximum_stock, unit_cost))
-        conn.commit()
-        conn.close()
-        return redirect('/supplies')
+        if int(reorder_level) < 0 or int(maximum_stock) < 0 or float(unit_cost) < 0: 
+            error = 'Reorder Level, Maximum Stock, and Unit Cost cannot be negative.' 
+        else: 
+            cursor.execute('INSERT INTO supplies (supply_code, supply_name, category_id, description, unit_id, brand, reorder_level, maximum_stock, unit_cost) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)', (code, name, category_id, description, unit_id, brand, reorder_level, maximum_stock, unit_cost)) 
+            conn.commit() 
+            conn.close() 
+            return redirect('/supplies')
     cursor.execute('SELECT * FROM supply_categories')
     category_list = cursor.fetchall()
     cursor.execute('SELECT * FROM units')
     unit_list = cursor.fetchall()
     conn.close()
-    return render_template('add_supply.html',categories=category_list, units=unit_list)
+    return render_template('add_supply.html',categories=category_list, units=unit_list, error=error)
 
 
-      
+@app.route('/supplies/edit/<int:supply_id>', methods=['GET','POST'])
+def edit_supply(supply_id): 
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    error = None
+    if request.method == 'POST':
+        code = request.form['supply_code']
+        name = request.form['supply_name']
+        category_id = request.form['category_id']
+        description = request.form['description']
+        unit_id = request.form['unit_id']
+        brand = request.form['brand']
+        reorder_level = request.form['reorder_level']
+        maximum_stock = request.form['maximum_stock']
+        unit_cost = request.form['unit_cost']
+        if int(reorder_level) < 0 or int(maximum_stock) < 0 or float(unit_cost) < 0: 
+            error = 'Reorder Level, Maximum Stock, and Unit Cost cannot be negative.' 
+        else: 
+            cursor.execute('UPDATE supplies SET supply_code=%s, supply_name=%s, category_id=%s, description=%s, unit_id=%s, brand=%s, reorder_level=%s, maximum_stock=%s, unit_cost=%s WHERE supply_id=%s', (code,name,category_id,description,unit_id,brand,reorder_level,maximum_stock,unit_cost,supply_id)) 
+            conn.commit() 
+            conn.close() 
+            return redirect('/supplies')
+    cursor.execute('SELECT * FROM supplies WHERE supply_id=%s', (supply_id,))
+    supply = cursor.fetchone()
+    cursor.execute('SELECT * FROM supply_categories')
+    category_list = cursor.fetchall() 
+    cursor.execute('SELECT * FROM units')
+    unit_list = cursor.fetchall()
+    conn.close()
+    return render_template('edit_supply.html', supply=supply,categories=category_list, units=unit_list, error=error)
+
+@app.route('/supplies/delete/<int:supply_id>')
+def delete_supply(supply_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM supplies WHERE supply_id=%s',(supply_id,))
+    conn.commit()
+    conn.close()
+    return redirect('/supplies')      
 if __name__ == '__main__':  
     app.run(debug=True)

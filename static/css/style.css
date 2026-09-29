@@ -1,0 +1,165 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #F0EBD8;
+    color: #0D1321;
+    display: flex;
+    min-height: 100vh;
+}
+
+
+.sidebar {
+    width: 220px;
+    background-color: #748CAB;
+    color: white;
+    padding: 1.5rem 1rem;
+    flex-shrink: 0;
+}
+
+.sidebar h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+}
+
+.sidebar a {
+    display: block;
+    color: white;
+    font-weight: 600;
+    text-decoration: none;
+    padding: 10px 12px;
+    border-radius: 6px;
+    margin-bottom: 4px;
+}
+
+.sidebar a:hover {
+    background-color: #3E5C76;
+}
+
+
+.main-content {
+    flex: 1;
+    padding: 2rem;
+}
+
+h1 {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: #1D2D44;
+}
+
+
+.btn {
+    display: inline-block;
+    background-color: #1D2D44;
+    color: white;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 6px;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.btn:hover {
+    background-color: #0D1321;
+}
+
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: white;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-top: 1rem;
+}
+
+th,
+td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e5e1d3;
+    font-size: 14px;
+}
+
+th {
+    background-color: #3E5C76;
+    color: white;
+    font-weight: 600;
+}
+
+
+input,
+select,
+textarea {
+    padding: 8px;
+    border: 1px solid #748CAB;
+    border-radius: 6px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    width: 100%;
+    max-width: 400px;
+}
+
+label {
+    font-weight: 700;
+    font-size: 14px;
+    display: block;
+    margin-top: 10px;
+    color: #1D2D44;
+}
+
+form {
+    background-color: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    max-width: 500px;
+    margin-top: 1rem;
+}
+
+
+.badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.badge-active {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.badge-inactive {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+
+.search-bar {
+    margin-bottom: 1rem;
+}
+
+.search-bar input {
+    display: inline-block;
+    width: 250px;
+}
+
+
+.error-message {
+    background-color: #fee2e2;
+    color: #991b1b;
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    font-weight: 600;
+}

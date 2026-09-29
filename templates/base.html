@@ -1,0 +1,19 @@
+<!DOCTYPE html> 
+<html> 
+    <head> 
+        <title>{% block title %}OSMS{% endblock %}</title> 
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+        <link rel="preconnect" href="https://fonts.googleapis.com"> 
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"> 
+    </head> 
+    <body> 
+        <div class="sidebar"> 
+            <h2>OSMS</h2> 
+            <a href="/">Dashboard</a> 
+            <a href="/categories">Categories</a> 
+            <a href="/units">Units</a> 
+            <a href="/supplies">Supplies</a> 
+        </div> 
+        <div class="main-content"> {% block content %}{% endblock %} </div> 
+    </body> 
+        </html>

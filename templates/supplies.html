@@ -6,11 +6,6 @@
     <body>
         <h1>Supply Master List</h1>
         <a href="/supplies/add">Add New Supply</a>
-        <form method = "GET">
-            <input type="text" name="search" placeholder="Search by code, name, category, or brand" value="{{request.args.get('search','')}}">
-            <button type="submit">Search</button>
-            <a href="/supplies">Clear</a>
-        </form>
         <form method="GET"> 
             <input type="text" name="search" placeholder="Search by code, name, category, or brand" value="{{ request.args.get('search', '') }}"> 
             <button type="submit">Search</button> 

@@ -1,0 +1,70 @@
+{% extends "base.html" %} 
+{% block title %}Supply Profile{% endblock %} 
+{% block content %} 
+<h1>{{ supply.supply_name }}</h1> 
+<div class="card"> 
+    <h3>Supply Information</h3> 
+    <table> 
+        <tr>
+            <td><b>Code</b></td><td>{{ supply.supply_code }}</td>
+        </tr> 
+        <tr>
+            <td><b>Category</b></td>
+            <td>{{ supply.category_name }}</td>
+        </tr> 
+        <tr>
+            <td><b>Unit</b></td><td>{{ supply.unit_name }}</td>
+        </tr> 
+        <tr>
+            <td><b>Brand</b></td>
+            <td>{{ supply.brand }}</td>
+        </tr> 
+        <tr>
+            <td><b>Description</b></td>
+            <td>{{ supply.description }}</td>
+        </tr> 
+        <tr>
+            <td><b>Reorder Level</b></td>
+            <td>{{ supply.reorder_level }}</td>
+        </tr> 
+        <tr>
+            <td><b>Maximum Stock</b></td>
+            <td>{{ supply.maximum_stock }}</td>
+        </tr> 
+        <tr>
+            <td><b>Unit Cost</b></td>
+            <td>{{ supply.unit_cost }}</td>
+        </tr> 
+        <tr>
+            <td><b>Status</b></td>
+            <td>{% if supply.status == 'Active' %}<span class="badge badge-active">Active</span>{% else %}<span class="badge badge-inactive">Inactive</span>{% endif %}</td>
+        </tr> 
+    </table> 
+</div> 
+<div class="card"> 
+    <h3>Supplier Information</h3> 
+    <p>Not available yet — coming in Lab 9 (Supplier Registration).</p> 
+</div> 
+<div class="card"> 
+    <h3>Current Stock</h3> 
+    <p>Not available yet — coming in Labs 13-16 (Receiving and Inventory).</p> 
+</div> 
+<div class="card"> 
+    <h3>Stock In History</h3> 
+    <p>Not available yet — coming in Labs 13-16 (Receiving and Inventory).</p> 
+</div> 
+<div class="card"> 
+    <h3>Stock Out History</h3> 
+    <p>Not available yet — coming in Labs 31-36 (Supply Issuance).</p> 
+</div> 
+<div class="card"> 
+    <h3>Request History</h3> 
+    <p>Not available yet — coming in Labs 17-21 (Supply Request Management).</p> 
+</div> 
+<div class="card"> 
+    <h3>Issuance History</h3> 
+    <p>Not available yet — coming in Labs 31-36 (Supply Issuance).</p> 
+</div> 
+<br> 
+<a href="/supplies">Back to Supplies List</a> 
+{% endblock %}

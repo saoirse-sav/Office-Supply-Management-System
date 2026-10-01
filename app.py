@@ -214,6 +214,16 @@ def delete_supply(supply_id):
     cursor.execute('DELETE FROM supplies WHERE supply_id=%s',(supply_id,))
     conn.commit()
     conn.close()
-    return redirect('/supplies')      
+    return redirect('/supplies')
+
+@app.route('/supplies/profile/<int:supply_id>') 
+def supply_profile(supply_id): 
+    conn = get_connection() 
+    cursor = conn.cursor(dictionary=True) 
+    cursor.execute('SELECT supplies.*, supply_categories.category_name, units.unit_name FROM supplies LEFT JOIN supply_categories ON supplies.category_id = supply_categories.category_id LEFT JOIN units ON supplies.unit_id = units.unit_id WHERE supplies.supply_id=%s', (supply_id,))
+    supply = cursor.fetchone()
+    conn.close() 
+    return render_template('supply_profile.html', supply=supply)     
+ 
 if __name__ == '__main__':  
     app.run(debug=True)

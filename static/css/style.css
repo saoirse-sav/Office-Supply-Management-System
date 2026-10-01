@@ -6,30 +6,36 @@
 
 body {
     font-family: 'Inter', sans-serif;
-    background-color: #F0EBD8;
-    color: #0D1321;
+    background-color: #FBF8F1;
+    color: #2C2C2A;
     display: flex;
     min-height: 100vh;
 }
 
-
 .sidebar {
     width: 220px;
-    background-color: #748CAB;
+    background-color: #2D4739;
     color: white;
     padding: 1.5rem 1rem;
     flex-shrink: 0;
 }
 
-.sidebar h2 {
-    font-size: 20px;
+.sidebar-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 17px;
     font-weight: 700;
     margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .sidebar a {
-    display: block;
-    color: white;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #C9D6C9;
     font-weight: 600;
     text-decoration: none;
     padding: 10px 12px;
@@ -38,9 +44,9 @@ body {
 }
 
 .sidebar a:hover {
-    background-color: #3E5C76;
+    background-color: #3F5D4A;
+    color: white;
 }
-
 
 .main-content {
     flex: 1;
@@ -48,16 +54,15 @@ body {
 }
 
 h1 {
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 700;
     margin-bottom: 1rem;
-    color: #1D2D44;
+    color: #2D4739;
 }
-
 
 .btn {
     display: inline-block;
-    background-color: #1D2D44;
+    background-color: #2D4739;
     color: white;
     font-weight: 600;
     padding: 8px 16px;
@@ -69,39 +74,40 @@ h1 {
 }
 
 .btn:hover {
-    background-color: #0D1321;
+    background-color: #1F3327;
 }
 
+.card {
+    background-color: white;
+    border-radius: 10px;
+    padding: 1rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    margin-top: 1rem;
+}
 
 table {
     width: 100%;
     border-collapse: collapse;
-    background-color: white;
-    border-radius: 8px;
-    overflow: hidden;
-    margin-top: 1rem;
 }
 
 th,
 td {
     text-align: left;
-    padding: 10px 12px;
-    border-bottom: 1px solid #e5e1d3;
+    padding: 10px 8px;
+    border-bottom: 1px solid #EDE8DC;
     font-size: 14px;
 }
 
 th {
-    background-color: #3E5C76;
-    color: white;
-    font-weight: 600;
+    color: #6B7A6D;
+    font-weight: 700;
 }
-
 
 input,
 select,
 textarea {
     padding: 8px;
-    border: 1px solid #748CAB;
+    border: 1px solid #C9D6C9;
     border-radius: 6px;
     font-family: 'Inter', sans-serif;
     font-size: 14px;
@@ -114,36 +120,35 @@ label {
     font-size: 14px;
     display: block;
     margin-top: 10px;
-    color: #1D2D44;
+    color: #2D4739;
 }
 
 form {
     background-color: white;
     padding: 1.5rem;
-    border-radius: 8px;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
     max-width: 500px;
     margin-top: 1rem;
 }
-
 
 .badge {
     display: inline-block;
     padding: 3px 10px;
     border-radius: 12px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
 }
 
 .badge-active {
-    background-color: #dcfce7;
-    color: #166534;
+    background-color: #E3EEE3;
+    color: #2D4739;
 }
 
 .badge-inactive {
-    background-color: #fee2e2;
-    color: #991b1b;
+    background-color: #F5E6D8;
+    color: #B5652F;
 }
-
 
 .search-bar {
     margin-bottom: 1rem;
@@ -154,10 +159,9 @@ form {
     width: 250px;
 }
 
-
 .error-message {
-    background-color: #fee2e2;
-    color: #991b1b;
+    background-color: #FBE5D8;
+    color: #A0481F;
     padding: 10px;
     border-radius: 6px;
     margin-bottom: 1rem;

@@ -1,0 +1,23 @@
+{% extends "base.html" %} 
+{% block title %}Edit Supplier{% endblock %} 
+{% block content %} 
+<h1>Edit Supplier</h1> 
+<form method="POST"> 
+    <label>Supplier Code:</label> 
+    <input type="text" name="supplier_code" value="{{ supplier.supplier_code }}" required> 
+    <label>Supplier Name:</label> 
+    <input type="text" name="supplier_name" value="{{ supplier.supplier_name }}" required> 
+    <label>Contact Person:</label> 
+    <input type="text" name="contact_person" value="{{ supplier.contact_person }}"> 
+    <label>Address:</label> 
+    <textarea name="address">{{ supplier.address }}</textarea> 
+    <label>Email:</label> 
+    <input type="email" name="email" value="{{ supplier.email }}"> 
+    <label>Contact Number:</label> 
+    <input type="text" name="contact_number" value="{{ supplier.contact_number }}"> 
+    <label>Tax/Business Information:</label> 
+    <input type="text" name="tax_info" value="{{ supplier.tax_info }}"> <br><br> 
+    <button type="submit" class="btn">Update Supplier</button> 
+</form> <br> 
+<a href="/suppliers">Back to Suppliers List</a> 
+{% endblock %}

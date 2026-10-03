@@ -1,0 +1,46 @@
+ {% extends "base.html" %} 
+ {% block title %}Supplier Profile{% endblock %} 
+ {% block content %} 
+ <h1>{{ supplier.supplier_name }}</h1> 
+ <div class="card"> 
+    <h3>Supplier Information</h3> 
+    <table> 
+        <tr>
+            <td><b>Code</b></td>
+            <td>{{ supplier.supplier_code }}</td>
+        </tr> 
+        <tr>
+            <td><b>Contact Person</b></td>
+            <td>{{ supplier.contact_person }}</td>
+        </tr> 
+        <tr>
+            <td><b>Address</b></td>
+            <td>{{ supplier.address }}</td>
+        </tr> 
+        <tr>
+            <td><b>Email</b></td>
+            <td>{{ supplier.email }}</td>
+        </tr>
+         <tr>
+            <td><b>Contact Number</b></td>
+            <td>{{ supplier.contact_number }}</td>
+        </tr> 
+        <tr>
+            <td><b>Tax/Business Info</b></td>
+            <td>{{ supplier.tax_info }}</td>
+        </tr> 
+        <tr>
+            <td><b>Status</b></td>
+            <td>{% if supplier.status == 'Active' %}<span class="badge badge-active">Active</span>{% else %}<span class="badge badge-inactive">Inactive</span>{% endif %}</td>
+        </tr> 
+    </table> 
+</div> 
+<div class="card"> 
+    <h3>Supplies Offered</h3> 
+    <p>Not available yet — coming in Lab 11 (Supplier-Supply Assignment).</p> 
+</div> <div class="card"> 
+    <h3>Transaction History</h3> 
+    <p>Not available yet — coming in Lab 12 (Supplier Transaction History).</p> 
+</div> <br> 
+<a href="/suppliers">Back to Suppliers List</a> 
+{% endblock %}

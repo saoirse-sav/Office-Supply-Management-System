@@ -223,7 +223,81 @@ def supply_profile(supply_id):
     cursor.execute('SELECT supplies.*, supply_categories.category_name, units.unit_name FROM supplies LEFT JOIN supply_categories ON supplies.category_id = supply_categories.category_id LEFT JOIN units ON supplies.unit_id = units.unit_id WHERE supplies.supply_id=%s', (supply_id,))
     supply = cursor.fetchone()
     conn.close() 
-    return render_template('supply_profile.html', supply=supply)     
+    return render_template('supply_profile.html', supply=supply)
+
+@app.route('/suppliers') 
+def suppliers(): 
+    conn = get_connection() 
+    cursor = conn.cursor(dictionary=True) 
+    search = request.args.get('search', '') 
+    if search: 
+        cursor.execute('SELECT * FROM suppliers WHERE supplier_name LIKE %s OR supplier_code LIKE %s OR contact_person LIKE %s', ('%' + search + '%', '%' + search + '%', '%' + search + '%')) 
+    else: 
+        cursor.execute('SELECT * FROM suppliers')
+    all_suppliers = cursor.fetchall() 
+    conn.close() 
+    return render_template('suppliers.html', suppliers=all_suppliers) 
+
+@app.route('/suppliers/add', methods=['GET', 'POST']) 
+def add_supplier(): 
+    if request.method == 'POST': 
+        code = request.form['supplier_code'] 
+        name = request.form['supplier_name'] 
+        contact_person = request.form['contact_person'] 
+        address = request.form['address'] 
+        email = request.form['email'] 
+        contact_number = request.form['contact_number'] 
+        tax_info = request.form['tax_info'] 
+        conn = get_connection() 
+        cursor = conn.cursor() 
+        cursor.execute('INSERT INTO suppliers (supplier_code, supplier_name, contact_person, address, email, contact_number, tax_info) VALUES (%s, %s, %s, %s, %s, %s, %s)', (code, name, contact_person, address, email, contact_number, tax_info)) 
+        conn.commit() 
+        conn.close() 
+        return redirect('/suppliers') 
+    return render_template('add_supplier.html')
+
+@app.route('/suppliers/edit/<int:supplier_id>', methods=['GET', 'POST']) 
+def edit_supplier(supplier_id): 
+    conn = get_connection() 
+    cursor = conn.cursor(dictionary=True) 
+    if request.method == 'POST': 
+        code = request.form['supplier_code'] 
+        name = request.form['supplier_name'] 
+        contact_person = request.form['contact_person'] 
+        address = request.form['address'] 
+        email = request.form['email'] 
+        contact_number = request.form['contact_number'] 
+        tax_info = request.form['tax_info'] 
+        cursor.execute('UPDATE suppliers SET supplier_code=%s, supplier_name=%s, contact_person=%s, address=%s, email=%s, contact_number=%s, tax_info=%s WHERE supplier_id=%s', (code, name, contact_person, address, email, contact_number, tax_info, supplier_id)) 
+        conn.commit() 
+        conn.close() 
+        return redirect('/suppliers') 
+    cursor.execute('SELECT * FROM suppliers WHERE supplier_id=%s', (supplier_id,)) 
+    supplier = cursor.fetchone() 
+    conn.close() 
+    return render_template('edit_supplier.html', supplier=supplier) 
+
+@app.route('/suppliers/toggle/<int:supplier_id>') 
+def toggle_supplier(supplier_id): 
+    conn = get_connection() 
+    cursor = conn.cursor(dictionary=True) 
+    cursor.execute('SELECT status FROM suppliers WHERE supplier_id=%s', (supplier_id,)) 
+    current = cursor.fetchone() 
+    new_status = 'Inactive' if current['status'] == 'Active' else 'Active' 
+    cursor.execute('UPDATE suppliers SET status=%s WHERE supplier_id=%s', (new_status, supplier_id)) 
+    conn.commit() 
+    conn.close() 
+    return redirect('/suppliers') 
+
+@app.route('/suppliers/profile/<int:supplier_id>') 
+def supplier_profile(supplier_id): 
+    conn = get_connection() 
+    cursor = conn.cursor(dictionary=True) 
+    cursor.execute('SELECT * FROM suppliers WHERE supplier_id=%s', (supplier_id,)) 
+    supplier = cursor.fetchone() 
+    conn.close() 
+    return render_template('supplier_profile.html', supplier=supplier)
+
  
 if __name__ == '__main__':  
     app.run(debug=True)

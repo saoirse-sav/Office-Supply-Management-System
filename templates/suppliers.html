@@ -1,0 +1,37 @@
+{% extends "base.html" %} 
+{% block title %}Suppliers{% endblock %} 
+{% block content %} 
+<h1>Suppliers</h1> 
+<div class="search-bar"> 
+    <form method="GET"> 
+        <input type="text" name="search" placeholder="Search by name, code, or contact person" value="{{ request.args.get('search', '') }}"> 
+        <button type="submit" class="btn">Search</button> 
+        <a href="/suppliers">Clear</a> 
+    </form> 
+</div>
+<a href="/suppliers/add" class="btn">Add New Supplier</a> 
+<div class="card"> 
+    <table> 
+        <tr> 
+            <th>Code</th> 
+            <th>Name</th> 
+            <th>Contact Person</th> 
+            <th>Email</th> 
+            <th>Contact Number</th> 
+            <th>Status</th> 
+            <th>Action</th> 
+        </tr> 
+        {% for supplier in suppliers %} 
+        <tr> 
+            <td>{{ supplier.supplier_code }}</td> 
+            <td>{{ supplier.supplier_name }}</td> 
+            <td>{{ supplier.contact_person }}</td> 
+            <td>{{ supplier.email }}</td> 
+            <td>{{ supplier.contact_number }}</td> 
+            <td>{% if supplier.status == 'Active' %}<span class="badge badge-active">Active</span>{% else %}<span class="badge badge-inactive">Inactive</span>{% endif %}</td> 
+            <td><a href="/suppliers/profile/{{ supplier.supplier_id }}">View</a> | <a href="/suppliers/edit/{{ supplier.supplier_id }}">Edit</a> | <a href="/suppliers/toggle/{{ supplier.supplier_id }}">{% if supplier.status == 'Active' %}Deactivate{% else %}Activate{% endif %}</a></td> 
+        </tr> 
+        {% endfor %} 
+    </table> 
+</div>
+{% endblock %}

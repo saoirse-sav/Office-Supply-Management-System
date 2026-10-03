@@ -1,0 +1,23 @@
+{% extends "base.html" %} 
+{% block title %}Add Supplier{% endblock %} 
+{% block content %} 
+<h1>Register New Supplier</h1> 
+<form method="POST"> 
+    <label>Supplier Code:</label> 
+    <input type="text" name="supplier_code" required> 
+    <label>Supplier Name:</label> 
+    <input type="text" name="supplier_name" required> 
+    <label>Contact Person:</label> 
+    <input type="text" name="contact_person"> 
+    <label>Address:</label> 
+    <textarea name="address"></textarea> 
+    <label>Email:</label> 
+    <input type="email" name="email"> 
+    <label>Contact Number:</label> 
+    <input type="text" name="contact_number"> 
+    <label>Tax/Business Information:</label> 
+    <input type="text" name="tax_info"> <br><br> 
+    <button type="submit" class="btn">Save Supplier</button> 
+</form> <br> 
+<a href="/suppliers">Back to Suppliers List</a> 
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %} 
+{% block title %}Supply Receipts{% endblock %} 
+{% block content %} 
+<h1>Supply Receipts</h1> 
+<a href="/receipts/add" class="btn">Add New Receipt</a> 
+<div class="card"> 
+    <table> 
+        <tr> 
+            <th>Receipt Number</th> 
+            <th>Supplier</th> 
+            <th>Delivery Date</th> 
+            <th>PO Reference</th> 
+            <th>Received By</th> 
+            <th>Remarks</th> 
+        </tr> 
+        {% for receipt in receipts %} 
+        <tr> 
+            <td>{{ receipt.receipt_number }}</td> 
+            <td>{{ receipt.supplier_name }}</td> 
+            <td>{{ receipt.delivery_date }}</td> 
+            <td>{{ receipt.po_reference }}</td> 
+            <td>{{ receipt.received_by }}</td> 
+            <td>{{ receipt.remarks }}</td> 
+        </tr> 
+        {% endfor %} 
+    </table> 
+</div> 
+{% endblock %}

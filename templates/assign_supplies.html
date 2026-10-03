@@ -1,0 +1,15 @@
+{% extends "base.html" %} 
+{% block title %}Assign Supplies{% endblock %} 
+{% block content %} 
+<h1>Assign Supplies to {{ supplier.supplier_name }}</h1> 
+<form method="POST"> 
+    <div class="card"> 
+        {% for supply in supplies %} 
+        <label style="font-weight: normal; display: flex; align-items: center; gap: 8px;"> 
+            <input type="checkbox" name="supply_ids" value="{{ supply.supply_id }}" {% if supply.supply_id in assigned_ids %}checked{% endif %} style="width: auto;"> {{ supply.supply_code }} - {{ supply.supply_name }} </label> 
+            {% endfor %} 
+        </div> <br> 
+        <button type="submit" class="btn">Save Assignments</button> 
+    </form> <br> 
+    <a href="/suppliers/profile/{{ supplier.supplier_id }}">Back to Supplier Profile</a> 
+    {% endblock %}

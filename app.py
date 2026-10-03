@@ -295,8 +295,61 @@ def supplier_profile(supplier_id):
     cursor = conn.cursor(dictionary=True) 
     cursor.execute('SELECT * FROM suppliers WHERE supplier_id=%s', (supplier_id,)) 
     supplier = cursor.fetchone() 
+    cursor.execute('SELECT supplies.* FROM supplies JOIN supplier_supplies ON supplies.supply_id = supplier_supplies.supply_id WHERE supplier_supplies.supplier_id=%s', (supplier_id,)) 
+    assigned_supplies = cursor.fetchall()
     conn.close() 
-    return render_template('supplier_profile.html', supplier=supplier)
+    return render_template('supplier_profile.html', supplier=supplier, assigned_supplies=assigned_supplies)
+
+@app.route('/suppliers/assign/<int:supplier_id>', methods=['GET', 'POST'])
+def assign_supplies(supplier_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    if request.method == 'POST':
+        selected_ids = request.form.getlist('supply_ids')
+        cursor.execute('DELETE FROM supplier_supplies WHERE supplier_id=%s', (supplier_id,))
+        for supply_id in selected_ids:
+            cursor.execute('INSERT INTO supplier_supplies (supplier_id, supply_id) VALUES (%s, %s)', (supplier_id, supply_id))
+        conn.commit()
+        conn.close()
+        return redirect('/suppliers/profile/' + str(supplier_id))
+    cursor.execute('SELECT * FROM suppliers WHERE supplier_id=%s', (supplier_id,))
+    supplier = cursor.fetchone()
+    cursor.execute('SELECT * FROM supplies')
+    all_supplies = cursor.fetchall()
+    cursor.execute('SELECT supply_id FROM supplier_supplies WHERE supplier_id=%s', (supplier_id,))
+    assigned_rows = cursor.fetchall()
+    assigned_ids = [row['supply_id'] for row in assigned_rows]
+    conn.close()
+    return render_template('assign_supplies.html', supplier=supplier, supplies=all_supplies, assigned_ids=assigned_ids)
+
+@app.route('/receipts') 
+def receipts(): 
+    conn = get_connection() 
+    cursor = conn.cursor(dictionary=True) 
+    cursor.execute('SELECT supply_receipts.*, suppliers.supplier_name FROM supply_receipts LEFT JOIN suppliers ON supply_receipts.supplier_id = suppliers.supplier_id ORDER BY supply_receipts.receipt_id DESC') 
+    all_receipts = cursor.fetchall() 
+    conn.close() 
+    return render_template('receipts.html', receipts=all_receipts) 
+
+@app.route('/receipts/add', methods=['GET', 'POST']) 
+def add_receipt(): 
+    conn = get_connection() 
+    cursor = conn.cursor(dictionary=True) 
+    if request.method == 'POST': 
+        receipt_number = request.form['receipt_number'] 
+        supplier_id = request.form['supplier_id'] 
+        delivery_date = request.form['delivery_date'] 
+        po_reference = request.form['po_reference'] 
+        received_by = request.form['received_by'] 
+        remarks = request.form['remarks'] 
+        cursor.execute('INSERT INTO supply_receipts (receipt_number, supplier_id, delivery_date, po_reference, received_by, remarks) VALUES (%s, %s, %s, %s, %s, %s)', (receipt_number, supplier_id, delivery_date, po_reference, received_by, remarks)) 
+        conn.commit() 
+        conn.close() 
+        return redirect('/receipts') 
+    cursor.execute('SELECT * FROM suppliers WHERE status="Active"') 
+    supplier_list = cursor.fetchall() 
+    conn.close() 
+    return render_template('add_receipt.html', suppliers=supplier_list)
 
  
 if __name__ == '__main__':  

@@ -37,8 +37,19 @@
 </div> 
 <div class="card"> 
     <h3>Supplies Offered</h3> 
-    <p>Not available yet — coming in Lab 11 (Supplier-Supply Assignment).</p> 
-</div> <div class="card"> 
+    <a href="/suppliers/assign/{{ supplier.supplier_id }}" class="btn">Manage Supplies</a> 
+    <table> 
+        <tr>
+            <th>Code</th>
+            <th>Name</th>
+        </tr> 
+        {% for supply in assigned_supplies %} <tr>
+            <td>{{ supply.supply_code }}</td>
+            <td>{{ supply.supply_name }}</td>
+        </tr> {% endfor %} 
+    </table> 
+</div>
+<div class="card"> 
     <h3>Transaction History</h3> 
     <p>Not available yet — coming in Lab 12 (Supplier Transaction History).</p> 
 </div> <br> 

@@ -1,0 +1,25 @@
+{% extends "base.html" %} 
+{% block title %}Add Receipt{% endblock %} 
+{% block content %} 
+<h1>Record Supply Receipt</h1> 
+<form method="POST"> 
+    <label>Receipt Number:</label> 
+    <input type="text" name="receipt_number" required> 
+    <label>Supplier:</label> 
+    <select name="supplier_id" required> 
+        {% for supplier in suppliers %} 
+        <option value="{{ supplier.supplier_id }}">{{ supplier.supplier_name }}</option> 
+        {% endfor %} 
+    </select> 
+    <label>Delivery Date:</label> 
+    <input type="date" name="delivery_date" required> 
+    <label>PO/Reference Number:</label> 
+    <input type="text" name="po_reference"> 
+    <label>Received By:</label> 
+    <input type="text" name="received_by" required> 
+    <label>Remarks:</label> 
+    <textarea name="remarks"></textarea> <br><br> 
+    <button type="submit" class="btn">Save Receipt</button> 
+</form> <br> 
+<a href="/receipts">Back to Receipts List</a> 
+{% endblock %}

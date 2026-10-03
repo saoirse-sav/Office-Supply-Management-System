@@ -329,7 +329,28 @@ def receipts():
     cursor.execute('SELECT supply_receipts.*, suppliers.supplier_name FROM supply_receipts LEFT JOIN suppliers ON supply_receipts.supplier_id = suppliers.supplier_id ORDER BY supply_receipts.receipt_id DESC') 
     all_receipts = cursor.fetchall() 
     conn.close() 
-    return render_template('receipts.html', receipts=all_receipts) 
+    return render_template('receipts.html', receipts=all_receipts)
+
+@app.route('/receipts/items/<int:receipt_id>', methods=['GET', 'POST']) 
+def receipt_items(receipt_id): 
+    conn = get_connection() 
+    cursor = conn.cursor(dictionary=True) 
+    if request.method == 'POST': 
+        supply_id = request.form['supply_id'] 
+        quantity = int(request.form['quantity']) 
+        unit_cost = float(request.form['unit_cost']) 
+        total_cost = quantity * unit_cost 
+        batch_reference = request.form['batch_reference'] 
+        cursor.execute('INSERT INTO receipt_items (receipt_id, supply_id, quantity, unit_cost, total_cost, batch_reference) VALUES (%s, %s, %s, %s, %s, %s)', (receipt_id, supply_id, quantity, unit_cost, total_cost, batch_reference)) 
+        conn.commit() 
+    cursor.execute('SELECT * FROM supply_receipts WHERE receipt_id=%s', (receipt_id,)) 
+    receipt = cursor.fetchone() 
+    cursor.execute('SELECT * FROM supplies') 
+    supply_list = cursor.fetchall() 
+    cursor.execute('SELECT receipt_items.*, supplies.supply_name FROM receipt_items JOIN supplies ON receipt_items.supply_id = supplies.supply_id WHERE receipt_items.receipt_id=%s', (receipt_id,)) 
+    items = cursor.fetchall() 
+    conn.close() 
+    return render_template('receipt_items.html', receipt=receipt, supplies=supply_list, items=items)
 
 @app.route('/receipts/add', methods=['GET', 'POST']) 
 def add_receipt(): 
@@ -342,10 +363,11 @@ def add_receipt():
         po_reference = request.form['po_reference'] 
         received_by = request.form['received_by'] 
         remarks = request.form['remarks'] 
-        cursor.execute('INSERT INTO supply_receipts (receipt_number, supplier_id, delivery_date, po_reference, received_by, remarks) VALUES (%s, %s, %s, %s, %s, %s)', (receipt_number, supplier_id, delivery_date, po_reference, received_by, remarks)) 
+        cursor.execute('INSERT INTO supply_receipts (receipt_number, supplier_id, delivery_date, po_reference, received_by, remarks) VALUES (%s, %s, %s, %s, %s, %s)', (receipt_number, supplier_id, delivery_date, po_reference, received_by, remarks))
+        new_receipt_id = cursor.lastrowid
         conn.commit() 
         conn.close() 
-        return redirect('/receipts') 
+        return redirect('/receipts/items/' + str(new_receipt_id)) 
     cursor.execute('SELECT * FROM suppliers WHERE status="Active"') 
     supplier_list = cursor.fetchall() 
     conn.close() 

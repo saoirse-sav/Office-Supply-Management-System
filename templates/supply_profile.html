@@ -42,17 +42,30 @@
     </table> 
 </div> 
 <div class="card"> 
-    <h3>Supplier Information</h3> 
-    <p>Not available yet — coming in Lab 9 (Supplier Registration).</p> 
-</div> 
-<div class="card"> 
     <h3>Current Stock</h3> 
-    <p>Not available yet — coming in Labs 13-16 (Receiving and Inventory).</p> 
+    {% if current_inventory %} 
+    <p><b>{{ current_inventory.current_stock }}</b> {{ supply.unit_name }}</p> 
+    {% else %} 
+    <p>No stock received yet.</p> 
+    {% endif %} 
 </div> 
 <div class="card"> 
     <h3>Stock In History</h3> 
-    <p>Not available yet — coming in Labs 13-16 (Receiving and Inventory).</p> 
-</div> 
+    <table> 
+        <tr>
+            <th>Date</th>
+            <th>Quantity</th>
+            <th>Balance After</th>
+        </tr> 
+        {% for entry in stock_in_history %} 
+            <tr>
+                <td>{{ entry.created_at }}</td>
+                <td>{{ entry.quantity }}</td>
+                <td>{{ entry.balance_after }}</td>
+            </tr> 
+            {% endfor %} 
+        </table> 
+    </div> 
 <div class="card"> 
     <h3>Stock Out History</h3> 
     <p>Not available yet — coming in Labs 31-36 (Supply Issuance).</p> 

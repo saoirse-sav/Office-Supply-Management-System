@@ -222,8 +222,12 @@ def supply_profile(supply_id):
     cursor = conn.cursor(dictionary=True) 
     cursor.execute('SELECT supplies.*, supply_categories.category_name, units.unit_name FROM supplies LEFT JOIN supply_categories ON supplies.category_id = supply_categories.category_id LEFT JOIN units ON supplies.unit_id = units.unit_id WHERE supplies.supply_id=%s', (supply_id,))
     supply = cursor.fetchone()
+    cursor.execute('SELECT * FROM inventory WHERE supply_id=%s', (supply_id,)) 
+    current_inventory = cursor.fetchone() 
+    cursor.execute('SELECT * FROM inventory_transactions WHERE supply_id=%s AND transaction_type="Stock In" ORDER BY created_at DESC', (supply_id,)) 
+    stock_in_history = cursor.fetchall()
     conn.close() 
-    return render_template('supply_profile.html', supply=supply)
+    return render_template('supply_profile.html', supply=supply, current_inventory=current_inventory, stock_in_history=stock_in_history)
 
 @app.route('/suppliers') 
 def suppliers(): 
@@ -341,7 +345,16 @@ def receipt_items(receipt_id):
         unit_cost = float(request.form['unit_cost']) 
         total_cost = quantity * unit_cost 
         batch_reference = request.form['batch_reference'] 
-        cursor.execute('INSERT INTO receipt_items (receipt_id, supply_id, quantity, unit_cost, total_cost, batch_reference) VALUES (%s, %s, %s, %s, %s, %s)', (receipt_id, supply_id, quantity, unit_cost, total_cost, batch_reference)) 
+        cursor.execute('INSERT INTO receipt_items (receipt_id, supply_id, quantity, unit_cost, total_cost, batch_reference) VALUES (%s, %s, %s, %s, %s, %s)', (receipt_id, supply_id, quantity, unit_cost, total_cost, batch_reference))
+        cursor.execute('SELECT * FROM inventory WHERE supply_id=%s', (supply_id,)) 
+        existing_inventory = cursor.fetchone() 
+        if existing_inventory: 
+            new_stock = existing_inventory['current_stock'] + quantity 
+            cursor.execute('UPDATE inventory SET current_stock=%s WHERE supply_id=%s', (new_stock, supply_id)) 
+        else: 
+            new_stock = quantity 
+            cursor.execute('INSERT INTO inventory (supply_id, current_stock) VALUES (%s, %s)', (supply_id, new_stock)) 
+        cursor.execute('INSERT INTO inventory_transactions (supply_id, transaction_type, quantity, balance_after, reference_type, reference_id) VALUES (%s, %s, %s, %s, %s, %s)', (supply_id, 'Stock In', quantity, new_stock, 'Receipt', receipt_id))
         conn.commit() 
     cursor.execute('SELECT * FROM supply_receipts WHERE receipt_id=%s', (receipt_id,)) 
     receipt = cursor.fetchone() 

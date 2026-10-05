@@ -1,0 +1,28 @@
+{% extends "base.html" %} 
+{% block title %}Employees{% endblock %} 
+{% block content %} 
+<h1>Employees</h1> 
+<a href="/employees/add" class="btn">Add New Employee</a> 
+<div class="card"> 
+    <table> 
+        <tr> 
+            <th>Name</th> 
+            <th>Position</th> 
+            <th>Department</th> 
+            <th>Email</th> 
+            <th>Contact Number</th> 
+            <th>Status</th> 
+        </tr> 
+        {% for employee in employees %} 
+        <tr> 
+            <td>{{ employee.first_name }} {{ employee.last_name }}</td> 
+            <td>{{ employee.position }}</td> 
+            <td>{{ employee.department_name }}</td> 
+            <td>{{ employee.email }}</td> 
+            <td>{{ employee.contact_number }}</td> 
+            <td>{% if employee.status == 'Active' %}<span class="badge badge-active">Active</span>{% else %}<span class="badge badge-inactive">Inactive</span>{% endif %}</td> 
+        </tr> 
+        {% endfor %} 
+    </table> 
+</div> 
+{% endblock %}

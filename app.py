@@ -374,6 +374,56 @@ def inventory_transactions():
     conn.close() 
     return render_template('inventory_transactions.html', transactions=all_transactions)
 
+@app.route('/departments') 
+def departments(): 
+    conn = get_connection() 
+    cursor = conn.cursor(dictionary=True) 
+    cursor.execute('SELECT * FROM departments') 
+    all_departments = cursor.fetchall() 
+    conn.close() 
+    return render_template('departments.html', departments=all_departments) 
+
+@app.route('/departments/add', methods=['GET', 'POST']) 
+def add_department(): 
+    if request.method == 'POST': 
+        name = request.form['department_name'] 
+        conn = get_connection() 
+        cursor = conn.cursor() 
+        cursor.execute('INSERT INTO departments (department_name) VALUES (%s)', (name,)) 
+        conn.commit() 
+        conn.close() 
+        return redirect('/departments') 
+    return render_template('add_department.html')
+
+@app.route('/employees') 
+def employees(): 
+    conn = get_connection() 
+    cursor = conn.cursor(dictionary=True) 
+    cursor.execute('SELECT employees.*, departments.department_name FROM employees LEFT JOIN departments ON employees.department_id = departments.department_id') 
+    all_employees = cursor.fetchall() 
+    conn.close() 
+    return render_template('employees.html', employees=all_employees) 
+
+@app.route('/employees/add', methods=['GET', 'POST']) 
+def add_employee(): 
+    conn = get_connection() 
+    cursor = conn.cursor(dictionary=True) 
+    if request.method == 'POST': 
+        first_name = request.form['first_name'] 
+        last_name = request.form['last_name'] 
+        position = request.form['position'] 
+        department_id = request.form['department_id'] 
+        email = request.form['email'] 
+        contact_number = request.form['contact_number'] 
+        cursor.execute('INSERT INTO employees (first_name, last_name, position, department_id, email, contact_number) VALUES (%s, %s, %s, %s, %s, %s)', (first_name, last_name, position, department_id, email, contact_number)) 
+        conn.commit() 
+        conn.close() 
+        return redirect('/employees') 
+    cursor.execute('SELECT * FROM departments WHERE status="Active"') 
+    department_list = cursor.fetchall() 
+    conn.close()
+    return render_template('add_employee.html', departments=department_list)
+
 @app.route('/receipts/add', methods=['GET', 'POST']) 
 def add_receipt(): 
     conn = get_connection() 
@@ -397,4 +447,4 @@ def add_receipt():
 
  
 if __name__ == '__main__':  
-    app.run(debug=True)
+    app.run(debug=True) 

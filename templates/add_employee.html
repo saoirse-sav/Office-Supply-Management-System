@@ -1,0 +1,21 @@
+{% extends "base.html" %} 
+{% block title %}Add Employee{% endblock %} 
+{% block content %} 
+<h1>Register New Employee</h1> 
+<form method="POST"> 
+    <label>First Name:</label> 
+    <input type="text" name="first_name" required> 
+    <label>Last Name:</label> 
+    <input type="text" name="last_name" required> 
+    <label>Position:</label> 
+    <input type="text" name="position"> 
+    <label>Department:</label> 
+    <select name="department_id" required> {% for dept in departments %} <option value="{{ dept.department_id }}">{{ dept.department_name }}</option> {% endfor %} </select> 
+    <label>Email:</label> 
+    <input type="email" name="email"> 
+    <label>Contact Number:</label> 
+    <input type="text" name="contact_number"> <br><br> 
+    <button type="submit" class="btn">Save Employee</button> 
+</form> <br> 
+<a href="/employees">Back to Employees List</a> 
+{% endblock %}

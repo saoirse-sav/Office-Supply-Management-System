@@ -1,0 +1,22 @@
+ {% extends "base.html" %} 
+ {% block title %}Create Request{% endblock %} 
+ {% block content %} 
+ <h1>Create Supply Request</h1> 
+ <form method="POST"> 
+    <label>Request Number:</label> 
+    <input type="text" name="request_number" required> 
+    <label>Requestor:</label> 
+    <select name="employee_id" required> {% for emp in employees %} <option value="{{ emp.employee_id }}">{{ emp.first_name }} {{ emp.last_name }}</option> {% endfor %} </select> 
+    <label>Request Date:</label> 
+    <input type="date" name="request_date" required> 
+    <label>Purpose:</label> <input type="text" name="purpose"> 
+    <label>Priority:</label> 
+    <select name="priority"> <option value="Low">Low</option> <option value="Normal" selected>Normal</option> <option value="High">High</option> <option value="Urgent">Urgent</option> </select> 
+    <label>Required Date:</label> 
+    <input type="date" name="required_date"> 
+    <label>Remarks:</label> 
+    <textarea name="remarks"></textarea> <br><br> 
+    <button type="submit" class="btn">Save Request</button> 
+</form> <br> 
+<a href="/requests">Back to Requests List</a> 
+{% endblock %}

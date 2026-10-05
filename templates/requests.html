@@ -1,0 +1,28 @@
+{% extends "base.html" %} 
+{% block title %}Supply Requests{% endblock %} 
+{% block content %} 
+<h1>Supply Requests</h1> 
+<a href="/requests/add" class="btn">Create New Request</a> 
+<div class="card"> 
+    <table> 
+        <tr> 
+            <th>Request Number</th> 
+            <th>Requestor</th> 
+            <th>Department</th> 
+            <th>Request Date</th> 
+            <th>Priority</th> 
+            <th>Status</th> 
+        </tr> 
+        {% for req in requests %} 
+        <tr>
+            <td>{{ req.request_number }}</td> 
+            <td>{{ req.first_name }} {{ req.last_name }}</td> 
+            <td>{{ req.department_name }}</td> 
+            <td>{{ req.request_date }}</td> 
+            <td>{{ req.priority }}</td> 
+            <td>{{ req.status }}</td> 
+        </tr> 
+        {% endfor %} 
+    </table> 
+</div> 
+{% endblock %}d

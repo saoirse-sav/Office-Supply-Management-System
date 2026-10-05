@@ -424,6 +424,40 @@ def add_employee():
     conn.close()
     return render_template('add_employee.html', departments=department_list)
 
+@app.route('/requests') 
+def requests_list(): 
+    conn = get_connection() 
+    cursor = conn.cursor(dictionary=True) 
+    cursor.execute('SELECT supply_requests.*, employees.first_name, employees.last_name, departments.department_name FROM supply_requests LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id LEFT JOIN departments ON supply_requests.department_id = departments.department_id ORDER BY supply_requests.request_id DESC') 
+    all_requests = cursor.fetchall() 
+    conn.close() 
+    return render_template('requests.html', requests=all_requests) 
+
+@app.route('/requests/add', methods=['GET', 'POST']) 
+def add_request(): 
+    conn = get_connection() 
+    cursor = conn.cursor(dictionary=True) 
+    if request.method == 'POST': 
+        request_number = request.form['request_number'] 
+        employee_id = request.form['employee_id'] 
+        request_date = request.form['request_date'] 
+        purpose = request.form['purpose'] 
+        priority = request.form['priority'] 
+        required_date = request.form['required_date'] 
+        remarks = request.form['remarks'] 
+        cursor.execute('SELECT department_id FROM employees WHERE employee_id=%s', (employee_id,)) 
+        employee_row = cursor.fetchone() 
+        department_id = employee_row['department_id'] 
+        cursor.execute('INSERT INTO supply_requests (request_number, employee_id, department_id, request_date, purpose, priority, required_date, remarks) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)', (request_number, employee_id, department_id, request_date, purpose, priority, required_date, remarks)) 
+        conn.commit() 
+        new_request_id = cursor.lastrowid 
+        conn.close() 
+        return redirect('/requests') 
+    cursor.execute('SELECT * FROM employees WHERE status="Active"') 
+    employee_list = cursor.fetchall() 
+    conn.close() 
+    return render_template('add_request.html', employees=employee_list)
+
 @app.route('/receipts/add', methods=['GET', 'POST']) 
 def add_receipt(): 
     conn = get_connection() 

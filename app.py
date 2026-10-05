@@ -431,7 +431,25 @@ def requests_list():
     cursor.execute('SELECT supply_requests.*, employees.first_name, employees.last_name, departments.department_name FROM supply_requests LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id LEFT JOIN departments ON supply_requests.department_id = departments.department_id ORDER BY supply_requests.request_id DESC') 
     all_requests = cursor.fetchall() 
     conn.close() 
-    return render_template('requests.html', requests=all_requests) 
+    return render_template('requests.html', requests=all_requests)
+
+@app.route('/requests/items/<int:request_id>', methods=['GET', 'POST']) 
+def request_items(request_id): 
+    conn = get_connection() 
+    cursor = conn.cursor(dictionary=True) 
+    if request.method == 'POST': 
+        supply_id = request.form['supply_id'] 
+        requested_qty = int(request.form['requested_qty']) 
+        cursor.execute('INSERT INTO request_items (request_id, supply_id, requested_qty) VALUES (%s, %s, %s)', (request_id, supply_id, requested_qty)) 
+        conn.commit() 
+    cursor.execute('SELECT * FROM supply_requests WHERE request_id=%s', (request_id,)) 
+    req = cursor.fetchone() 
+    cursor.execute('SELECT supplies.*, inventory.current_stock FROM supplies LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id') 
+    supply_list = cursor.fetchall() 
+    cursor.execute('SELECT request_items.*, supplies.supply_name, inventory.current_stock FROM request_items JOIN supplies ON request_items.supply_id = supplies.supply_id LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id WHERE request_items.request_id=%s', (request_id,)) 
+    items = cursor.fetchall() 
+    conn.close() 
+    return render_template('request_items.html', req=req, supplies=supply_list, items=items) 
 
 @app.route('/requests/add', methods=['GET', 'POST']) 
 def add_request(): 
@@ -452,7 +470,7 @@ def add_request():
         conn.commit() 
         new_request_id = cursor.lastrowid 
         conn.close() 
-        return redirect('/requests') 
+        return redirect('/requests/items/' + str(new_request_id)) 
     cursor.execute('SELECT * FROM employees WHERE status="Active"') 
     employee_list = cursor.fetchall() 
     conn.close() 

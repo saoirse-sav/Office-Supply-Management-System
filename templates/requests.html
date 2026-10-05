@@ -11,7 +11,8 @@
             <th>Department</th> 
             <th>Request Date</th> 
             <th>Priority</th> 
-            <th>Status</th> 
+            <th>Status</th>
+            <th>Action</th> 
         </tr> 
         {% for req in requests %} 
         <tr>
@@ -20,9 +21,10 @@
             <td>{{ req.department_name }}</td> 
             <td>{{ req.request_date }}</td> 
             <td>{{ req.priority }}</td> 
-            <td>{{ req.status }}</td> 
+            <td>{{ req.status }}</td>
+            <td><a href="/requests/items/{{ req.request_id }}">Items</a></td> 
         </tr> 
         {% endfor %} 
     </table> 
 </div> 
-{% endblock %}d
+{% endblock %}  

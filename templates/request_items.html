@@ -1,0 +1,39 @@
+{% extends "base.html" %} 
+{% block title %}Request Items{% endblock %} 
+{% block content %} 
+<h1>Request {{ req.request_number }}</h1> 
+<p>Purpose: {{ req.purpose }} | Priority: {{ req.priority }} | Status: {{ req.status }}</p> 
+<div class="card"> 
+    <h3>Add Item</h3> 
+    <form method="POST"> 
+        <label>Supply:</label> 
+        <select name="supply_id" required> {% for supply in supplies %} <option value="{{ supply.supply_id }}">{{ supply.supply_code }} - {{ supply.supply_name }} (Available: {{ supply.current_stock or 0 }})</option> {% endfor %} </select> 
+        <label>Requested Quantity:</label> 
+        <input type="number" name="requested_qty" min="1" required> <br><br> 
+        <button type="submit" class="btn">Add Item</button> 
+    </form> 
+</div> 
+<div class="card"> 
+    <h3>Items in This Request</h3> 
+    <table> 
+        <tr> 
+            <th>Supply</th> 
+            <th>Requested Qty</th> 
+            <th>Available Qty</th> 
+            <th>Approved Qty</th> 
+            <th>Issued Qty</th> 
+        </tr> 
+        {% for item in items %} 
+        <tr> 
+            <td>{{ item.supply_name }}</td> 
+            <td>{{ item.requested_qty }}</td> 
+            <td>{{ item.current_stock or 0 }}</td> 
+            <td>{{ item.approved_qty }}</td> 
+            <td>{{ item.issued_qty }}</td> 
+        </tr> 
+        {% endfor %} 
+    </table> 
+</div> 
+<br> 
+<a href="/requests">Back to Requests List</a> 
+{% endblock %}

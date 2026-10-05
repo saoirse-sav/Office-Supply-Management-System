@@ -230,7 +230,7 @@ def supply_profile(supply_id):
     return render_template('supply_profile.html', supply=supply, current_inventory=current_inventory, stock_in_history=stock_in_history)
 
 @app.route('/suppliers') 
-def suppliers(): 
+def suppliers():    
     conn = get_connection() 
     cursor = conn.cursor(dictionary=True) 
     search = request.args.get('search', '') 
@@ -364,6 +364,15 @@ def receipt_items(receipt_id):
     items = cursor.fetchall() 
     conn.close() 
     return render_template('receipt_items.html', receipt=receipt, supplies=supply_list, items=items)
+
+@app.route('/inventory/transactions') 
+def inventory_transactions(): 
+    conn = get_connection() 
+    cursor = conn.cursor(dictionary=True) 
+    cursor.execute('SELECT inventory_transactions.*, supplies.supply_name FROM inventory_transactions JOIN supplies ON inventory_transactions.supply_id = supplies.supply_id ORDER BY inventory_transactions.created_at DESC') 
+    all_transactions = cursor.fetchall() 
+    conn.close() 
+    return render_template('inventory_transactions.html', transactions=all_transactions)
 
 @app.route('/receipts/add', methods=['GET', 'POST']) 
 def add_receipt(): 

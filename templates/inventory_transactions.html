@@ -1,0 +1,25 @@
+{% extends "base.html" %} 
+{% block title %}Inventory Transaction History{% endblock %} 
+{% block content %} 
+<h1>Inventory Transaction History</h1> 
+<div class="card"> 
+    <table> 
+        <tr> 
+            <th>Date</th> 
+            <th>Supply</th> 
+            <th>Transaction</th> 
+            <th>Quantity</th> 
+            <th>Balance</th> 
+        </tr> 
+        {% for tx in transactions %} 
+        <tr> 
+            <td>{{ tx.created_at }}</td> 
+            <td>{{ tx.supply_name }}</td> 
+            <td>{{ tx.transaction_type }}</td> 
+            <td>{{ tx.quantity }}</td> 
+            <td>{{ tx.balance_after }}</td>
+         </tr> 
+         {% endfor %} 
+        </table> 
+    </div> 
+    {% endblock %}

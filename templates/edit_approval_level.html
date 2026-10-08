@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Edit Approval Level{% endblock %}
+{% block content %}
+<h1>Edit Approval Level</h1>
+{% if error %}
+<p class="error-message">{{ error }}</p>
+{% endif %}
+<form method="POST">
+    <label>Level Number:</label>
+    <input type="number" name="level_number" min="1" value="{{ level.level_number }}" required>
+    <label>Level Name:</label>
+    <input type="text" name="level_name" value="{{ level.level_name }}" required>
+<br><br>
+    <button type="submit" class="btn">Update Level</button>
+</form>
+<br>
+<a href="/approval-levels">Back to Approval Levels</a>
+{% endblock %}

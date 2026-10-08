@@ -428,28 +428,11 @@ def add_employee():
 def requests_list(): 
     conn = get_connection() 
     cursor = conn.cursor(dictionary=True) 
-    cursor.execute('SELECT supply_requests.*, employees.first_name, employees.last_name, departments.department_name FROM supply_requests LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id LEFT JOIN departments ON supply_requests.department_id = departments.department_id ORDER BY supply_requests.request_id DESC') 
+    cursor.execute('SELECT supply_requests.*, employees.first_name, employees.last_name, departments.department_name, (SELECT COUNT(*) FROM request_items WHERE request_items.request_id = supply_requests.request_id) AS item_count FROM supply_requests LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id LEFT JOIN departments ON supply_requests.department_id = departments.department_id ORDER BY supply_requests.request_id DESC') 
     all_requests = cursor.fetchall() 
     conn.close() 
     return render_template('requests.html', requests=all_requests)
 
-@app.route('/requests/items/<int:request_id>', methods=['GET', 'POST']) 
-def request_items(request_id): 
-    conn = get_connection() 
-    cursor = conn.cursor(dictionary=True) 
-    if request.method == 'POST': 
-        supply_id = request.form['supply_id'] 
-        requested_qty = int(request.form['requested_qty']) 
-        cursor.execute('INSERT INTO request_items (request_id, supply_id, requested_qty) VALUES (%s, %s, %s)', (request_id, supply_id, requested_qty)) 
-        conn.commit() 
-    cursor.execute('SELECT * FROM supply_requests WHERE request_id=%s', (request_id,)) 
-    req = cursor.fetchone() 
-    cursor.execute('SELECT supplies.*, inventory.current_stock FROM supplies LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id') 
-    supply_list = cursor.fetchall() 
-    cursor.execute('SELECT request_items.*, supplies.supply_name, inventory.current_stock FROM request_items JOIN supplies ON request_items.supply_id = supplies.supply_id LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id WHERE request_items.request_id=%s', (request_id,)) 
-    items = cursor.fetchall() 
-    conn.close() 
-    return render_template('request_items.html', req=req, supplies=supply_list, items=items) 
 
 @app.route('/requests/add', methods=['GET', 'POST']) 
 def add_request(): 
@@ -497,6 +480,112 @@ def add_receipt():
     conn.close() 
     return render_template('add_receipt.html', suppliers=supplier_list)
 
+@app.route('/requests/items/<int:request_id>', methods=['GET', 'POST'])
+def request_items(request_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    error = None
+    if request.args.get('msg') == 'no_items':
+        error = 'A request cannot be submitted without items. Please add at least one item first.'
+    cursor.execute('SELECT * FROM supply_requests WHERE request_id=%s', (request_id,))
+    req = cursor.fetchone()
+    editable = req['status'] in ('Draft', 'Returned')
+    if request.method == 'POST' and not editable:
+        error = 'This request has already been submitted and can no longer be modified.'
+    elif request.method == 'POST':
+        supply_id = request.form['supply_id']
+        requested_qty = int(request.form['requested_qty'])
+        cursor.execute('SELECT * FROM request_items WHERE request_id=%s AND supply_id=%s', (request_id, supply_id))
+        duplicate_check = cursor.fetchone()
+        cursor.execute('SELECT current_stock FROM inventory WHERE supply_id=%s', (supply_id,))
+        stock_row = cursor.fetchone()
+        available = stock_row['current_stock'] if stock_row else 0
+        if duplicate_check:
+            error = 'This supply has already been added to this request.'
+        elif requested_qty > available:
+            error = 'Requested quantity (' + str(requested_qty) + ') exceeds available stock (' + str(available) + ').'
+        else:
+            cursor.execute('INSERT INTO request_items (request_id, supply_id, requested_qty) VALUES (%s, %s, %s)', (request_id, supply_id, requested_qty))
+            conn.commit()
+    cursor.execute('SELECT supplies.*, inventory.current_stock FROM supplies LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id WHERE supplies.status="Active"')
+    supply_list = cursor.fetchall()
+    cursor.execute('SELECT request_items.*, supplies.supply_name, inventory.current_stock FROM request_items JOIN supplies ON request_items.supply_id = supplies.supply_id LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id WHERE request_items.request_id=%s', (request_id,))
+    items = cursor.fetchall()
+    conn.close()
+    return render_template('request_items.html', req=req, supplies=supply_list, items=items, error=error, editable=editable)
+
+@app.route('/requests/submit/<int:request_id>')
+def submit_request(request_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute('SELECT status FROM supply_requests WHERE request_id=%s', (request_id,))
+    req = cursor.fetchone()
+    cursor.execute('SELECT COUNT(*) AS item_count FROM request_items WHERE request_id=%s', (request_id,))
+    count_row = cursor.fetchone()
+    if req['status'] not in ('Draft', 'Returned'):
+        conn.close()
+        return redirect('/requests/items/' + str(request_id))
+    if count_row['item_count'] == 0:
+        conn.close()
+        return redirect('/requests/items/' + str(request_id) + '?msg=no_items')
+    cursor.execute('UPDATE supply_requests SET status="Submitted" WHERE request_id=%s', (request_id,))
+    conn.commit()
+    conn.close()
+    return redirect('/requests')
+
+@app.route('/approval-levels', methods=['GET', 'POST'])
+def approval_levels():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    error = None
+    if request.method == 'POST':
+        level_number = int(request.form['level_number'])
+        level_name = request.form['level_name']
+        cursor.execute('SELECT * FROM approval_levels WHERE level_number=%s', (level_number,))
+        if cursor.fetchone():
+            error = 'Level ' + str(level_number) + ' already exists.'
+        else:
+            cursor.execute('INSERT INTO approval_levels (level_number, level_name) VALUES (%s, %s)', (level_number, level_name))
+            conn.commit()
+    cursor.execute('SELECT * FROM approval_levels ORDER BY level_number')
+    levels = cursor.fetchall()
+    conn.close()
+    return render_template('approval_levels.html', levels=levels, error=error)
+
+
+@app.route('/approval-levels/edit/<int:level_id>', methods=['GET', 'POST'])
+def edit_approval_level(level_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    error = None
+    if request.method == 'POST':
+        level_number = int(request.form['level_number'])
+        level_name = request.form['level_name']
+        cursor.execute('SELECT * FROM approval_levels WHERE level_number=%s AND level_id<>%s', (level_number, level_id))
+        if cursor.fetchone():
+            error = 'Level ' + str(level_number) + ' already exists.'
+        else:
+            cursor.execute('UPDATE approval_levels SET level_number=%s, level_name=%s WHERE level_id=%s', (level_number, level_name, level_id))
+            conn.commit()
+            conn.close()
+            return redirect('/approval-levels')
+    cursor.execute('SELECT * FROM approval_levels WHERE level_id=%s', (level_id,))
+    level = cursor.fetchone()
+    conn.close()
+    return render_template('edit_approval_level.html', level=level, error=error)
+
+
+@app.route('/approval-levels/toggle/<int:level_id>')
+def toggle_approval_level(level_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute('SELECT status FROM approval_levels WHERE level_id=%s', (level_id,))
+    current = cursor.fetchone()
+    new_status = 'Inactive' if current['status'] == 'Active' else 'Active'
+    cursor.execute('UPDATE approval_levels SET status=%s WHERE level_id=%s', (new_status, level_id))
+    conn.commit()
+    conn.close()
+    return redirect('/approval-levels')
  
 if __name__ == '__main__':  
-    app.run(debug=True) 
+    app.run(host="0.0.0.0", port=5500) 

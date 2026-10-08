@@ -31,7 +31,7 @@
             <td>{% if supplier.status == 'Active' %}<span class="badge badge-active">Active</span>{% else %}<span class="badge badge-inactive">Inactive</span>{% endif %}</td> 
             <td><a href="/suppliers/profile/{{ supplier.supplier_id }}">View</a> | <a href="/suppliers/edit/{{ supplier.supplier_id }}">Edit</a> | <a href="/suppliers/toggle/{{ supplier.supplier_id }}">{% if supplier.status == 'Active' %}Deactivate{% else %}Activate{% endif %}</a></td> 
         </tr> 
-        {% endfor %} 
+        {% endfor %}    
     </table> 
 </div>
 {% endblock %}

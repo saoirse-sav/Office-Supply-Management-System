@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Approval Levels{% endblock %}
+{% block content %}
+<h1>Approval Levels</h1>
+{% if error %}
+<p class="error-message">{{ error }}</p>
+{% endif %}
+<div class="card">
+    <h3>Add Approval Level</h3>
+<form method="POST">
+    <label>Level Number:</label>
+    <input type="number" name="level_number" min="1" required>
+    <label>Level Name:</label>
+    <input type="text" name="level_name" required>
+<br><br>
+    <button type="submit" class="btn">Add Level</button>
+</form>
+</div>
+<div class="card">
+<table>
+    <tr>
+        <th>Level</th>
+        <th>Name</th>
+        <th>Status</th>
+        <th>Action</th>
+</tr>
+{% for level in levels %}
+    <tr>
+        <td>{{ level.level_number }}</td>
+        <td>{{ level.level_name }}</td>
+        <td>{% if level.status == 'Active' %}<span class="badge badge-active">Active</span>{% else %}<span class="badge badge-inactive">Inactive</span>{% endif %}</td>
+        <td><a href="/approval-levels/edit/{{ level.level_id }}">Edit</a> | <a href="/approval-levels/toggle/{{ level.level_id }}">{% if level.status == 'Active' %}Deactivate{% else %}Activate{% endif %}</a></td>
+</tr>
+{% endfor %}
+</table>
+</div>
+{% endblock %}

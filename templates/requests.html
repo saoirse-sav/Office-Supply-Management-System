@@ -12,7 +12,8 @@
             <th>Request Date</th> 
             <th>Priority</th> 
             <th>Status</th>
-            <th>Action</th> 
+            <th>Action</th>
+            <th>Items</th> 
         </tr> 
         {% for req in requests %} 
         <tr>
@@ -22,6 +23,7 @@
             <td>{{ req.request_date }}</td> 
             <td>{{ req.priority }}</td> 
             <td>{{ req.status }}</td>
+            <td>{% if req.item_count == 0 %}<span class="badge badge-inactive">No items yet</span>{% else %}{{ req.item_count }} item(s){% endif %}</td>
             <td><a href="/requests/items/{{ req.request_id }}">Items</a></td> 
         </tr> 
         {% endfor %} 

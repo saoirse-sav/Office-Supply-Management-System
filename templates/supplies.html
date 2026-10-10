@@ -2,11 +2,30 @@
 {% block title %}Supplies{% endblock %} 
 {% block content %} 
 <h1>Supply Master List</h1> 
-<div class="search-bar"> 
-    <form method="GET"> 
-        <input type="text" name="search" placeholder="Search by code, name, category, or brand" value="{{ request.args.get('search', '') }}"> 
-        <button type="submit" class="btn">Search</button> 
-        <a href="/supplies">Clear</a> </form> </div> 
+<div class="search-bar">
+<form method="GET" style="max-width:none;">
+<input type="text" name="search" placeholder="Search by code, name, category, or brand" value="{{ request.args.get('search', '') }}">
+<select name="unit_id" style="width:auto;">
+<option value="">All units</option>
+{% for unit in units %}
+<option value="{{ unit.unit_id }}" {% if selected_unit == unit.unit_id|string %}selected{% endif %}>{{ unit.unit_name }}</option>
+{% endfor %}
+</select>
+<select name="status" style="width:auto;">
+<option value="">All status</option>
+<option value="Active" {% if selected_status == 'Active' %}selected{% endif %}>Active</option>
+<option value="Inactive" {% if selected_status == 'Inactive' %}selected{% endif %}>Inactive</option>
+</select>
+<select name="stock_level" style="width:auto;">
+<option value="">All stock levels</option>
+<option value="available" {% if selected_stock == 'available' %}selected{% endif %}>Available</option>
+<option value="low" {% if selected_stock == 'low' %}selected{% endif %}>Low stock</option>
+<option value="out" {% if selected_stock == 'out' %}selected{% endif %}>Out of stock</option>
+</select>
+<button type="submit" class="btn">Filter</button>
+<a href="/supplies">Clear</a>
+</form>
+</div>
         <a href="/supplies/add" class="btn">Add New Supply</a> 
         <div class="card"> 
             <table> 
@@ -15,7 +34,8 @@
                     <th>Name</th> 
                     <th>Category</th> 
                     <th>Unit</th> 
-                    <th>Brand</th> 
+                    <th>Brand</th>
+                    <th>Stock</th> 
                     <th>Reorder Level</th> 
                     <th>Max Stock</th> 
                     <th>Unit Cost</th> 
@@ -28,7 +48,8 @@
                     <td>{{ supply.supply_name }}</td> 
                     <td>{{ supply.category_name }}</td> 
                     <td>{{ supply.unit_name }}</td> 
-                    <td>{{ supply.brand }}</td> 
+                    <td>{{ supply.brand }}</td>
+                    <td>{{ supply.stock }}</td> 
                     <td>{{ supply.reorder_level }}</td> 
                     <td>{{ supply.maximum_stock }}</td> 
                     <td>{{ supply.unit_cost }}</td> 

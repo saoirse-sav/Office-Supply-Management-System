@@ -134,17 +134,37 @@ def toggle_unit(unit_id):
 def supplies():
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
-    search = request.args.get('search','')
-    base_query = 'SELECT supplies.*, supply_categories.category_name, units.unit_name FROM supplies LEFT JOIN supply_categories ON supplies.category_id = supply_categories.category_id LEFT JOIN units ON supplies.unit_id = units.unit_id' 
-    if search: 
-        base_query += ' WHERE supplies.supply_code LIKE %s OR supplies.supply_name LIKE %s OR supply_categories.category_name LIKE %s OR supplies.brand LIKE %s' 
-        search_term = '%' + search + '%' 
-        cursor.execute(base_query, (search_term, search_term, search_term, search_term)) 
-    else: 
-        cursor.execute(base_query)
+    search = request.args.get('search', '')
+    unit_filter = request.args.get('unit_id', '')
+    status_filter = request.args.get('status', '')
+    stock_filter = request.args.get('stock_level', '')
+    query = 'SELECT supplies.*, supply_categories.category_name, units.unit_name, COALESCE(inventory.current_stock, 0) AS stock FROM supplies LEFT JOIN supply_categories ON supplies.category_id = supply_categories.category_id LEFT JOIN units ON supplies.unit_id = units.unit_id LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id'
+    conditions = []
+    params = []
+    if search:
+        conditions.append('(supplies.supply_code LIKE %s OR supplies.supply_name LIKE %s OR supply_categories.category_name LIKE %s OR supplies.brand LIKE %s)')
+        search_term = '%' + search + '%'
+        params.extend([search_term, search_term, search_term, search_term])
+    if unit_filter:
+        conditions.append('supplies.unit_id = %s')
+        params.append(unit_filter)
+    if status_filter:
+        conditions.append('supplies.status = %s')
+        params.append(status_filter)
+    if stock_filter == 'out':
+        conditions.append('COALESCE(inventory.current_stock, 0) = 0')
+    elif stock_filter == 'low':
+        conditions.append('(COALESCE(inventory.current_stock, 0) > 0 AND COALESCE(inventory.current_stock, 0) <= supplies.reorder_level)')
+    elif stock_filter == 'available':
+        conditions.append('(COALESCE(inventory.current_stock, 0) > 0 AND COALESCE(inventory.current_stock, 0) > supplies.reorder_level)')
+    if conditions:
+        query += ' WHERE ' + ' AND '.join(conditions)
+    cursor.execute(query, tuple(params))
     all_supplies = cursor.fetchall()
+    cursor.execute('SELECT * FROM units ORDER BY unit_name')
+    unit_list = cursor.fetchall()
     conn.close()
-    return render_template('supplies.html', supplies=all_supplies)
+    return render_template('supplies.html', supplies=all_supplies, units=unit_list, selected_unit=unit_filter, selected_status=status_filter, selected_stock=stock_filter)
 
 @app.route('/supplies/add', methods=['GET', 'POST'])
 def add_supply():
@@ -675,6 +695,47 @@ def inventory_list():
     rows = cursor.fetchall()
     conn.close()
     return render_template('inventory.html', rows=rows)
+
+@app.route('/inventory/adjustments', methods=['GET', 'POST'])
+def stock_adjustments():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    error = None
+    if request.method == 'POST':
+        supply_id = request.form['supply_id']
+        direction = request.form['direction']
+        quantity = int(request.form['quantity'])
+        reason = request.form['reason']
+        adjusted_by = request.form['adjusted_by']
+        remarks = request.form['remarks'].strip()
+        cursor.execute('SELECT current_stock FROM inventory WHERE supply_id=%s', (supply_id,))
+        stock_row = cursor.fetchone()
+        current_stock = stock_row['current_stock'] if stock_row else 0
+        change = quantity if direction == 'Increase' else -quantity
+        new_stock = current_stock + change
+        if quantity < 1:
+            error = 'Quantity must be at least 1.'
+        elif remarks == '':
+            error = 'Remarks are required for every adjustment.'
+        elif new_stock < 0:
+            error = 'This adjustment would make stock negative. Current stock is ' + str(current_stock) + '.'
+        else:
+            if stock_row:
+                cursor.execute('UPDATE inventory SET current_stock=%s WHERE supply_id=%s', (new_stock, supply_id))
+            else:
+                cursor.execute('INSERT INTO inventory (supply_id, current_stock) VALUES (%s, %s)', (supply_id, new_stock))
+            cursor.execute('INSERT INTO stock_adjustments (supply_id, quantity, reason, adjusted_by, remarks) VALUES (%s, %s, %s, %s, %s)', (supply_id, change, reason, adjusted_by, remarks))
+            adjustment_id = cursor.lastrowid
+            cursor.execute('INSERT INTO inventory_transactions (supply_id, transaction_type, quantity, balance_after, reference_type, reference_id) VALUES (%s, %s, %s, %s, %s, %s)', (supply_id, 'Adjustment', change, new_stock, 'Adjustment', adjustment_id))
+            conn.commit()
+            conn.close()
+            return redirect('/inventory/adjustments')
+    cursor.execute('SELECT supplies.supply_id, supplies.supply_code, supplies.supply_name, COALESCE(inventory.current_stock, 0) AS stock FROM supplies LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id WHERE supplies.status="Active" ORDER BY supplies.supply_name')
+    supply_list = cursor.fetchall()
+    cursor.execute('SELECT stock_adjustments.*, supplies.supply_name FROM stock_adjustments JOIN supplies ON stock_adjustments.supply_id = supplies.supply_id ORDER BY stock_adjustments.adjustment_id DESC')
+    adjustments = cursor.fetchall()
+    conn.close()
+    return render_template('stock_adjustments.html', supplies=supply_list, adjustments=adjustments, error=error)
  
 if __name__ == '__main__':  
     app.run(host="0.0.0.0", port=5500) 

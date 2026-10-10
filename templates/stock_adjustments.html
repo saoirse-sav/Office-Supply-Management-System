@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Stock Adjustments{% endblock %}
+{% block content %}
+<h1>Stock Adjustments</h1>
+{% if error %}<p class="error-message">{{ error }}</p>{% endif %}
+<div class="card">
+<h3>Record Adjustment</h3>
+<form method="POST">
+<label>Supply:</label>
+<select name="supply_id" required>
+{% for supply in supplies %}
+<option value="{{ supply.supply_id }}">{{ supply.supply_code }} - {{ supply.supply_name }} (Current stock: {{ supply.stock }})</option>
+{% endfor %}
+</select>
+<label>Reason:</label>
+<select name="reason" required>
+<option value="Damaged supplies">Damaged supplies</option>
+<option value="Lost supplies">Lost supplies</option>
+<option value="Physical count difference">Physical count difference</option>
+<option value="Correction">Correction</option>
+<option value="Expired/deteriorated supplies">Expired/deteriorated supplies</option>
+</select>
+<label>Adjustment:</label>
+<select name="direction" required>
+<option value="Decrease">Decrease stock</option>
+<option value="Increase">Increase stock</option>
+</select>
+<label>Quantity:</label>
+<input type="number" name="quantity" min="1" required>
+<label>Adjusted By:</label>
+<input type="text" name="adjusted_by" required>
+<label>Remarks:</label>
+<textarea name="remarks" required></textarea>
+<br><br>
+<button type="submit" class="btn">Save Adjustment</button>
+</form>
+</div>
+<div class="card">
+<h3>Adjustment History</h3>
+<table>
+<tr>
+<th>Date/Time</th>
+<th>Supply</th>
+<th>Reason</th>
+<th>Change</th>
+<th>Adjusted By</th>
+<th>Remarks</th>
+</tr>
+{% for adj in adjustments %}
+<tr>
+<td>{{ adj.adjusted_at }}</td>
+<td>{{ adj.supply_name }}</td>
+<td>{{ adj.reason }}</td>
+<td>{% if adj.quantity > 0 %}+{{ adj.quantity }}{% else %}{{ adj.quantity }}{% endif %}</td>
+<td>{{ adj.adjusted_by }}</td>
+<td>{{ adj.remarks }}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+{% endblock %}

@@ -592,6 +592,8 @@ def review_request(request_id):
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
     error = None
+    if request.args.get('msg') == 'remarks_required':
+        error = 'Remarks are required when rejecting or returning a request.'
     cursor.execute('SELECT supply_requests.*, employees.first_name, employees.last_name, departments.department_name FROM supply_requests LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id LEFT JOIN departments ON supply_requests.department_id = departments.department_id WHERE supply_requests.request_id=%s', (request_id,))
     req = cursor.fetchone()
     cursor.execute('SELECT request_items.*, supplies.supply_name, inventory.current_stock FROM request_items JOIN supplies ON request_items.supply_id = supplies.supply_id LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id WHERE request_items.request_id=%s', (request_id,))
@@ -603,7 +605,7 @@ def review_request(request_id):
             conn.commit()
             conn.close()
             return redirect('/requests/review/' + str(request_id))
-        elif action == 'save' and req['status'] in ('Under Review', 'For Approval'):
+        elif action == 'save' and req['status'] == 'Under Review':
             for item in items:
                 value = int(request.form['approved_' + str(item['request_item_id'])])
                 item['approved_qty'] = value
@@ -619,8 +621,60 @@ def review_request(request_id):
                 conn.commit()
                 conn.close()
                 return redirect('/requests/review/' + str(request_id))
+    next_level = None
+    if req['status'] == 'For Approval':
+        next_level = get_next_level(cursor, request_id)
+    cursor.execute('SELECT approvals.*, approval_levels.level_name FROM approvals LEFT JOIN approval_levels ON approvals.approval_level = approval_levels.level_number WHERE approvals.request_id=%s ORDER BY approvals.approval_id', (request_id,))
+    history = cursor.fetchall()
     conn.close()
-    return render_template('review_request.html', req=req, items=items, error=error)
+    return render_template('review_request.html', req=req, items=items, error=error, next_level=next_level, history=history)
+
+def get_next_level(cursor, request_id):
+    cursor.execute('SELECT MAX(approval_id) AS last_id FROM approvals WHERE request_id=%s AND decision="Returned"', (request_id,))
+    last_returned_id = cursor.fetchone()['last_id'] or 0
+    cursor.execute('SELECT approval_level FROM approvals WHERE request_id=%s AND decision="Approved" AND approval_id>%s', (request_id, last_returned_id))
+    approved_levels = [row['approval_level'] for row in cursor.fetchall()]
+    cursor.execute('SELECT * FROM approval_levels WHERE status="Active" ORDER BY level_number')
+    for level in cursor.fetchall():
+        if level['level_number'] not in approved_levels:
+            return level
+    return None
+
+
+@app.route('/requests/decide/<int:request_id>', methods=['POST'])
+def decide_request(request_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute('SELECT status FROM supply_requests WHERE request_id=%s', (request_id,))
+    req = cursor.fetchone()
+    approver_name = request.form['approver_name']
+    decision = request.form['decision']
+    remarks = request.form['remarks'].strip()
+    level = get_next_level(cursor, request_id)
+    if req['status'] != 'For Approval' or level is None or decision not in ('Approved', 'Rejected', 'Returned'):
+        conn.close()
+        return redirect('/requests/review/' + str(request_id))
+    if decision in ('Rejected', 'Returned') and remarks == '':
+        conn.close()
+        return redirect('/requests/review/' + str(request_id) + '?msg=remarks_required')
+    cursor.execute('INSERT INTO approvals (request_id, approver_name, approval_level, decision, remarks) VALUES (%s, %s, %s, %s, %s)', (request_id, approver_name, level['level_number'], decision, remarks))
+    if decision == 'Approved':
+        if get_next_level(cursor, request_id) is None:
+            cursor.execute('UPDATE supply_requests SET status="Approved" WHERE request_id=%s', (request_id,))
+    else:
+        cursor.execute('UPDATE supply_requests SET status=%s WHERE request_id=%s', (decision, request_id))
+    conn.commit()
+    conn.close()
+    return redirect('/requests/review/' + str(request_id))
+
+@app.route('/inventory')
+def inventory_list():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute('SELECT supplies.supply_code, supplies.supply_name, supplies.reorder_level, units.unit_name, COALESCE(inventory.current_stock, 0) AS stock, CASE WHEN COALESCE(inventory.current_stock, 0) = 0 THEN "Out of Stock" WHEN COALESCE(inventory.current_stock, 0) <= supplies.reorder_level THEN "Low Stock" ELSE "Available" END AS stock_status FROM supplies LEFT JOIN units ON supplies.unit_id = units.unit_id LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id ORDER BY supplies.supply_name')
+    rows = cursor.fetchall()
+    conn.close()
+    return render_template('inventory.html', rows=rows)
  
 if __name__ == '__main__':  
     app.run(host="0.0.0.0", port=5500) 

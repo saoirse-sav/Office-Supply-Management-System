@@ -51,7 +51,7 @@
     </form>
 </div>
 {% endif %}
-{% if req.status in ('Under Review', 'For Approval') %}
+{% if req.status == 'Under Review' %}
 <div class="card">
     <h3>Items</h3>
     <form method="POST" style="max-width:none; padding:0; box-shadow:none;">
@@ -99,6 +99,48 @@
     </table>
 </div>
 {% endif %}
+{% if req.status == 'For Approval' %}
+<div class="card">
+<h3>Approval Decision</h3>
+{% if next_level %}
+<p>Waiting for: <b>Level {{ next_level.level_number }} - {{ next_level.level_name }}</b></p>
+<form method="POST" action="/requests/decide/{{ req.request_id }}" style="max-width:none; padding:0; box-shadow:none;">
+<label>Your Name:</label>
+<input type="text" name="approver_name" required>
+<label>Remarks (required for Reject or Return):</label>
+<textarea name="remarks"></textarea>
+<br><br>
+<button type="submit" name="decision" value="Approved" class="btn">Approve</button>
+<button type="submit" name="decision" value="Rejected" class="btn">Reject</button>
+<button type="submit" name="decision" value="Returned" class="btn">Return for Revision</button>
+</form>
+{% else %}
+<p>No active approval level is waiting on this request. Check the Approval Levels page.</p>
+{% endif %}
+</div>
+{% endif %}
+<div class="card">
+<h3>Approval History</h3>
+<table>
+<tr>
+<th>Level</th>
+<th>Approver</th>
+<th>Decision</th>
+<th>Date/Time</th>
+<th>Remarks</th>
+</tr>
+{% for entry in history %}
+<tr>
+<td>Level {{ entry.approval_level }} - {{ entry.level_name }}</td>
+<td>{{ entry.approver_name }}</td>
+<td>{% if entry.decision == 'Approved' %}<span class="badge badge-active">Approved</span>{% else %}<span class="badge badge-inactive">{{ entry.decision }}</span>{% endif %}</td>
+<td>{{ entry.decided_at }}</td>
+<td>{{ entry.remarks }}</td>
+</tr>
+{% endfor %}
+</table>
+{% if not history %}<p>No decisions recorded yet.</p>{% endif %}
+</div>
 <br>
 <a href="/requests">Back to Requests List</a>
 {% endblock %}

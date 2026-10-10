@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Inventory{% endblock %}
+{% block content %}
+<h1>Current Inventory</h1>
+<div class="card">
+<table>
+<tr>
+<th>Code</th>
+<th>Supply</th>
+<th>Unit</th>
+<th>Stock</th>
+<th>Reorder Level</th>
+<th>Status</th>
+</tr>
+{% for row in rows %}
+<tr>
+<td>{{ row.supply_code }}</td>
+<td>{{ row.supply_name }}</td>
+<td>{{ row.unit_name }}</td>
+<td>{{ row.stock }}</td>
+<td>{{ row.reorder_level }}</td>
+<td><span class="badge {% if row.stock_status == 'Available' %}badge-active{% elif row.stock_status == 'Low Stock' %}badge-low{% else %}badge-out{% endif %}">{{ row.stock_status }}</span></td>
+</tr>
+{% endfor %}
+</table>
+</div>
+{% endblock %}

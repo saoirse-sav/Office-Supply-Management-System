@@ -167,3 +167,13 @@ form {
     margin-bottom: 1rem;
     font-weight: 600;
 }
+
+.badge-low {
+    background-color: #FFF3CD;
+    color: #8A6D1D;
+}
+
+.badge-out {
+    background-color: #FBE5D8;
+    color: #A0481F;
+}

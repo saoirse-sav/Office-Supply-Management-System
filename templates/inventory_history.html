@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Stock History{% endblock %}
+{% block content %}
+<h1>Stock History: {{ supply.supply_name }}</h1>
+<p>Code: {{ supply.supply_code }} | Unit: {{ supply.unit_name }}</p>
+<div class="card">
+<table>
+<tr>
+<th>Total Stock In</th>
+<th>Total Stock Out</th>
+<th>Net Adjustments</th>
+<th>Current Balance</th>
+</tr>
+<tr>
+<td>{{ totals.total_in }}</td>
+<td>{{ totals.total_out }}</td>
+<td>{% if totals.total_adjusted > 0 %}+{% endif %}{{ totals.total_adjusted }}</td>
+<td><b>{{ balance }}</b></td>
+</tr>
+</table>
+</div>
+<div class="card">
+<h3>All Movements (newest first)</h3>
+<table>
+<tr>
+<th>Date/Time</th>
+<th>Transaction</th>
+<th>Quantity</th>
+<th>Balance After</th>
+<th>Reference</th>
+</tr>
+{% for tx in transactions %}
+<tr>
+<td>{{ tx.created_at }}</td>
+<td>{{ tx.transaction_type }}</td>
+<td>{% if tx.transaction_type == 'Adjustment' and tx.quantity > 0 %}+{% endif %}{{ tx.quantity }}</td>
+<td>{{ tx.balance_after }}</td>
+<td>{{ tx.reference_type }} #{{ tx.reference_id }}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+<br>
+<a href="/inventory">Back to Inventory</a>
+{% endblock %}

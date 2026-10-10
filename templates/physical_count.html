@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Physical Count{% endblock %}
+{% block content %}
+<h1>Physical Inventory Count</h1>
+{% if error %}<p class="error-message">{{ error }}</p>{% endif %}
+<div class="card">
+<h3>Record a Count</h3>
+<form method="POST">
+<label>Supply:</label>
+<select name="supply_id" required>
+{% for supply in supplies %}
+<option value="{{ supply.supply_id }}">{{ supply.supply_code }} - {{ supply.supply_name }} (System qty: {{ supply.stock }})</option>
+{% endfor %}
+</select>
+<label>Actual Quantity Counted:</label>
+<input type="number" name="actual_qty" min="0" required>
+<label>Counted By:</label>
+<input type="text" name="counted_by" required>
+<label>Reason for Difference (required if the count differs):</label>
+<textarea name="reason"></textarea>
+<br><br>
+<button type="submit" class="btn">Save Count</button>
+</form>
+</div>
+<div class="card">
+<h3>Count History</h3>
+<table>
+<tr>
+<th>Date/Time</th>
+<th>Supply</th>
+<th>System Qty</th>
+<th>Actual Qty</th>
+<th>Variance</th>
+<th>Reason</th>
+<th>Counted By</th>
+</tr>
+{% for c in counts %}
+<tr>
+<td>{{ c.counted_at }}</td>
+<td>{{ c.supply_name }}</td>
+<td>{{ c.system_qty }}</td>
+<td>{{ c.actual_qty }}</td>
+<td>{% if c.variance > 0 %}+{{ c.variance }}{% else %}{{ c.variance }}{% endif %}</td>
+<td>{{ c.reason }}</td>
+<td>{{ c.counted_by }}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+{% endblock %}

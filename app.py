@@ -691,7 +691,7 @@ def decide_request(request_id):
 def inventory_list():
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute('SELECT supplies.supply_code, supplies.supply_name, supplies.reorder_level, units.unit_name, COALESCE(inventory.current_stock, 0) AS stock, CASE WHEN COALESCE(inventory.current_stock, 0) = 0 THEN "Out of Stock" WHEN COALESCE(inventory.current_stock, 0) <= supplies.reorder_level THEN "Low Stock" ELSE "Available" END AS stock_status FROM supplies LEFT JOIN units ON supplies.unit_id = units.unit_id LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id ORDER BY supplies.supply_name')
+    cursor.execute('SELECT supplies.supply_id, supplies.supply_code, supplies.supply_name, supplies.reorder_level, units.unit_name, COALESCE(inventory.current_stock, 0) AS stock, CASE WHEN COALESCE(inventory.current_stock, 0) = 0 THEN "Out of Stock" WHEN COALESCE(inventory.current_stock, 0) <= supplies.reorder_level THEN "Low Stock" ELSE "Available" END AS stock_status FROM supplies LEFT JOIN units ON supplies.unit_id = units.unit_id LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id ORDER BY supplies.supply_name')
     rows = cursor.fetchall()
     conn.close()
     return render_template('inventory.html', rows=rows)
@@ -736,6 +736,60 @@ def stock_adjustments():
     adjustments = cursor.fetchall()
     conn.close()
     return render_template('stock_adjustments.html', supplies=supply_list, adjustments=adjustments, error=error)
+
+@app.route('/inventory/physical-count', methods=['GET', 'POST'])
+def physical_count():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    error = None
+    if request.method == 'POST':
+        supply_id = request.form['supply_id']
+        actual_qty = int(request.form['actual_qty'])
+        counted_by = request.form['counted_by']
+        reason = request.form['reason'].strip()
+        cursor.execute('SELECT current_stock FROM inventory WHERE supply_id=%s', (supply_id,))
+        stock_row = cursor.fetchone()
+        system_qty = stock_row['current_stock'] if stock_row else 0
+        variance = actual_qty - system_qty
+        if actual_qty < 0:
+            error = 'Actual quantity cannot be negative.'
+        elif variance != 0 and reason == '':
+            error = 'A reason is required when the actual count differs from the system quantity.'
+        else:
+            cursor.execute('INSERT INTO physical_counts (supply_id, system_qty, actual_qty, variance, reason, counted_by) VALUES (%s, %s, %s, %s, %s, %s)', (supply_id, system_qty, actual_qty, variance, reason, counted_by))
+            count_id = cursor.lastrowid
+            if variance != 0:
+                if stock_row:
+                    cursor.execute('UPDATE inventory SET current_stock=%s WHERE supply_id=%s', (actual_qty, supply_id))
+                else:
+                    cursor.execute('INSERT INTO inventory (supply_id, current_stock) VALUES (%s, %s)', (supply_id, actual_qty))
+                cursor.execute('INSERT INTO stock_adjustments (supply_id, quantity, reason, adjusted_by, remarks) VALUES (%s, %s, %s, %s, %s)', (supply_id, variance, 'Physical count difference', counted_by, reason))
+                cursor.execute('INSERT INTO inventory_transactions (supply_id, transaction_type, quantity, balance_after, reference_type, reference_id) VALUES (%s, %s, %s, %s, %s, %s)', (supply_id, 'Adjustment', variance, actual_qty, 'Physical Count', count_id))
+            conn.commit()
+            conn.close()
+            return redirect('/inventory/physical-count')
+    cursor.execute('SELECT supplies.supply_id, supplies.supply_code, supplies.supply_name, COALESCE(inventory.current_stock, 0) AS stock FROM supplies LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id WHERE supplies.status="Active" ORDER BY supplies.supply_name')
+    supply_list = cursor.fetchall()
+    cursor.execute('SELECT physical_counts.*, supplies.supply_name FROM physical_counts JOIN supplies ON physical_counts.supply_id = supplies.supply_id ORDER BY physical_counts.count_id DESC')
+    counts = cursor.fetchall()
+    conn.close()
+    return render_template('physical_count.html', supplies=supply_list, counts=counts, error=error)
+
+@app.route('/inventory/history/<int:supply_id>')
+def inventory_history(supply_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute('SELECT supplies.*, units.unit_name FROM supplies LEFT JOIN units ON supplies.unit_id = units.unit_id WHERE supplies.supply_id=%s', (supply_id,))
+    supply = cursor.fetchone()
+    cursor.execute('SELECT current_stock FROM inventory WHERE supply_id=%s', (supply_id,))
+    stock_row = cursor.fetchone()
+    balance = stock_row['current_stock'] if stock_row else 0
+    cursor.execute('SELECT COALESCE(SUM(CASE WHEN transaction_type="Stock In" THEN quantity ELSE 0 END), 0) AS total_in, COALESCE(SUM(CASE WHEN transaction_type="Issued" THEN ABS(quantity) ELSE 0 END), 0) AS total_out, COALESCE(SUM(CASE WHEN transaction_type="Adjustment" THEN quantity ELSE 0 END), 0) AS total_adjusted FROM inventory_transactions WHERE supply_id=%s', (supply_id,))
+    totals = cursor.fetchone()
+    cursor.execute('SELECT * FROM inventory_transactions WHERE supply_id=%s ORDER BY transaction_id DESC', (supply_id,))
+    transactions = cursor.fetchall()
+    conn.close()
+    return render_template('inventory_history.html', supply=supply, balance=balance, totals=totals, transactions=transactions)
  
 if __name__ == '__main__':  
     app.run(host="0.0.0.0", port=5500) 

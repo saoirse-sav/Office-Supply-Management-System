@@ -42,7 +42,8 @@
     </table> 
 </div> 
 <div class="card"> 
-    <h3>Current Stock</h3> 
+    <h3>Current Stock</h3>
+    <p><a href="/inventory/history/{{ supply.supply_id }}">View full stock history</a></p> 
     {% if current_inventory %} 
     <p><b>{{ current_inventory.current_stock }}</b> {{ supply.unit_name }}</p> 
     {% else %} 

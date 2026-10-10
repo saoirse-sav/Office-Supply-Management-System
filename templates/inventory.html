@@ -11,6 +11,7 @@
 <th>Stock</th>
 <th>Reorder Level</th>
 <th>Status</th>
+<th>Action</th>
 </tr>
 {% for row in rows %}
 <tr>
@@ -20,6 +21,7 @@
 <td>{{ row.stock }}</td>
 <td>{{ row.reorder_level }}</td>
 <td><span class="badge {% if row.stock_status == 'Available' %}badge-active{% elif row.stock_status == 'Low Stock' %}badge-low{% else %}badge-out{% endif %}">{{ row.stock_status }}</span></td>
+<td><a href="/inventory/history/{{ row.supply_id }}">History</a></td>
 </tr>
 {% endfor %}
 </table>

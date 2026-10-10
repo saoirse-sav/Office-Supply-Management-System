@@ -24,7 +24,7 @@
             <td>{{ req.priority }}</td> 
             <td>{{ req.status }}</td>
             <td>{% if req.item_count == 0 %}<span class="badge badge-inactive">No items yet</span>{% else %}{{ req.item_count }} item(s){% endif %}</td>
-            <td><a href="/requests/items/{{ req.request_id }}">Items</a></td> 
+            <td><a href="/requests/items/{{ req.request_id }}">Items</a>{% if req.status in ('Submitted', 'Under Review', 'For Approval') %} | <a href="/requests/review/{{ req.request_id }}">Review</a>{% endif %}</td> 
         </tr> 
         {% endfor %} 
     </table> 

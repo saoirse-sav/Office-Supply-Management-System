@@ -586,6 +586,41 @@ def toggle_approval_level(level_id):
     conn.commit()
     conn.close()
     return redirect('/approval-levels')
+
+@app.route('/requests/review/<int:request_id>', methods=['GET', 'POST'])
+def review_request(request_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    error = None
+    cursor.execute('SELECT supply_requests.*, employees.first_name, employees.last_name, departments.department_name FROM supply_requests LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id LEFT JOIN departments ON supply_requests.department_id = departments.department_id WHERE supply_requests.request_id=%s', (request_id,))
+    req = cursor.fetchone()
+    cursor.execute('SELECT request_items.*, supplies.supply_name, inventory.current_stock FROM request_items JOIN supplies ON request_items.supply_id = supplies.supply_id LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id WHERE request_items.request_id=%s', (request_id,))
+    items = cursor.fetchall()
+    if request.method == 'POST':
+        action = request.form['action']
+        if action == 'start' and req['status'] == 'Submitted':
+            cursor.execute('UPDATE supply_requests SET status="Under Review" WHERE request_id=%s', (request_id,))
+            conn.commit()
+            conn.close()
+            return redirect('/requests/review/' + str(request_id))
+        elif action == 'save' and req['status'] in ('Under Review', 'For Approval'):
+            for item in items:
+                value = int(request.form['approved_' + str(item['request_item_id'])])
+                item['approved_qty'] = value
+                available = item['current_stock'] or 0
+                if value < 0 or value > item['requested_qty']:
+                    error = 'Approved quantity for ' + item['supply_name'] + ' must be between 0 and the requested quantity (' + str(item['requested_qty']) + ').'
+                elif value > available:
+                    error = 'Approved quantity for ' + item['supply_name'] + ' (' + str(value) + ') exceeds available stock (' + str(available) + ').'
+            if error is None:
+                for item in items:
+                    cursor.execute('UPDATE request_items SET approved_qty=%s WHERE request_item_id=%s', (item['approved_qty'], item['request_item_id']))
+                cursor.execute('UPDATE supply_requests SET review_remarks=%s, status="For Approval" WHERE request_id=%s', (request.form['review_remarks'], request_id))
+                conn.commit()
+                conn.close()
+                return redirect('/requests/review/' + str(request_id))
+    conn.close()
+    return render_template('review_request.html', req=req, items=items, error=error)
  
 if __name__ == '__main__':  
     app.run(host="0.0.0.0", port=5500) 

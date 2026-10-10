@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Review Request{% endblock %}
+{% block content %}
+<h1>Review Request {{ req.request_number }}</h1>
+{% if error %}
+<p class="error-message">{{ error }}</p>
+{% endif %}
+<div class="card">
+<h3>Request Details</h3>
+<table>
+    <tr>
+    <td><b>Requestor</b></td>
+    <td>{{ req.first_name }} {{ req.last_name }}</td>
+</tr>
+<tr>
+    <td><b>Department</b></td>
+    <td>{{ req.department_name }}</td>
+</tr>
+<tr>
+    <td><b>Request Date</b></td>
+    <td>{{ req.request_date }}</td>
+</tr>
+<tr>
+    <td><b>Required Date</b></td>
+    <td>{{ req.required_date }}</td>
+</tr>
+<tr>
+    <td><b>Purpose</b></td>
+    <td>{{ req.purpose }}</td>
+</tr>
+<tr>
+    <td><b>Priority</b></td>
+    <td>{{ req.priority }}</td>
+</tr>
+<tr>
+    <td><b>Status</b></td>
+    <td>{{ req.status }}</td>
+</tr>
+<tr>
+    <td><b>Requestor Remarks</b></td>
+    <td>{{ req.remarks }}</td>
+</tr>
+</table>
+</div>
+{% if req.status == 'Submitted' %}
+<div class="card">
+    <p>This request is waiting to be reviewed.</p>
+    <form method="POST" style="max-width:none; padding:0; box-shadow:none;">
+    <input type="hidden" name="action" value="start">
+    <button type="submit" class="btn">Start Review</button>
+    </form>
+</div>
+{% endif %}
+{% if req.status in ('Under Review', 'For Approval') %}
+<div class="card">
+    <h3>Items</h3>
+    <form method="POST" style="max-width:none; padding:0; box-shadow:none;">
+    <input type="hidden" name="action" value="save">
+<table>
+    <tr>
+    <th>Supply</th>
+    <th>Requested Qty</th>  
+    <th>Available Qty</th>
+    <th>Approved Qty</th>
+</tr>
+{% for item in items %}
+<tr>
+    <td>{{ item.supply_name }}</td>
+    <td>{{ item.requested_qty }}</td>
+    <td>{{ item.current_stock or 0 }}</td>
+    <td><input type="number" name="approved_{{ item.request_item_id }}" min="0" max="{{ item.requested_qty }}" value="{{ item.approved_qty }}" style="width:90px;" required></td>
+</tr>
+{% endfor %}
+</table>
+    <label>Review Remarks:</label>
+    <textarea name="review_remarks">{{ req.review_remarks or '' }}</textarea>
+<br><br>
+    <button type="submit" class="btn">Save Review</button>
+</form>
+</div>
+{% else %}
+<div class="card">
+    <h3>Items</h3>
+<table>
+    <tr>
+    <th>Supply</th>
+    <th>Requested Qty</th>
+    <th>Available Qty</th>
+    <th>Approved Qty</th>
+</tr>
+{% for item in items %}
+<tr>
+    <td>{{ item.supply_name }}</td>
+    <td>{{ item.requested_qty }}</td>
+    <td>{{ item.current_stock or 0 }}</td>
+    <td>{{ item.approved_qty }}</td>
+</tr>
+{% endfor %}
+    </table>
+</div>
+{% endif %}
+<br>
+<a href="/requests">Back to Requests List</a>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Issuance Queue{% endblock %}
+{% block content %}
+<h1>Issuance Queue</h1>
+<p>Approved requests waiting for supplies to be issued.</p>
+<div class="card">
+<table>
+<tr>
+<th>Request Number</th>
+<th>Requestor</th>
+<th>Department</th>
+<th>Left to Issue</th>
+<th>Date Approved</th>
+<th>Status</th>
+<th>Action</th>
+</tr>
+{% for row in queue %}
+<tr>
+<td>{{ row.request_number }}</td>
+<td>{{ row.first_name }} {{ row.last_name }}</td>
+<td>{{ row.department_name }}</td>
+<td>
+{% for item in row.item_list %}
+{{ item.supply_name }}: {{ item.remaining }} {{ item.unit_name }} (approved {{ item.approved_qty }}, issued {{ item.issued_qty }})<br>
+{% endfor %}
+</td>
+<td>{{ row.date_approved }}</td>
+<td>{% if row.total_issued > 0 %}<span class="badge badge-low">Partially issued</span>{% else %}<span class="badge badge-active">Approved</span>{% endif %}</td>
+<td><a href="/issuance/issue/{{ row.request_id }}">Issue</a></td>
+</tr>
+{% endfor %}
+</table>
+{% if not queue %}<p>No approved requests are waiting.</p>{% endif %}
+</div>
+{% endblock %}

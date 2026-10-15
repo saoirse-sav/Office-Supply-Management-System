@@ -790,6 +790,73 @@ def inventory_history(supply_id):
     transactions = cursor.fetchall()
     conn.close()
     return render_template('inventory_history.html', supply=supply, balance=balance, totals=totals, transactions=transactions)
+
+@app.route('/issuance')
+def issuance_queue():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute('SELECT supply_requests.request_id, supply_requests.request_number, supply_requests.status, employees.first_name, employees.last_name, departments.department_name, (SELECT MAX(decided_at) FROM approvals WHERE approvals.request_id = supply_requests.request_id AND approvals.decision="Approved") AS date_approved, (SELECT COALESCE(SUM(issued_qty), 0) FROM request_items WHERE request_items.request_id = supply_requests.request_id) AS total_issued FROM supply_requests LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id LEFT JOIN departments ON supply_requests.department_id = departments.department_id WHERE supply_requests.status="Approved" ORDER BY date_approved')
+    queue = cursor.fetchall()
+    for row in queue:
+        cursor.execute('SELECT supplies.supply_name, request_items.approved_qty, request_items.issued_qty, request_items.approved_qty - request_items.issued_qty AS remaining, units.unit_name FROM request_items JOIN supplies ON request_items.supply_id = supplies.supply_id LEFT JOIN units ON supplies.unit_id = units.unit_id WHERE request_items.request_id=%s AND request_items.approved_qty > request_items.issued_qty', (row['request_id'],))
+        row['item_list'] = cursor.fetchall()
+    conn.close()
+    return render_template('issuance_queue.html', queue=queue)
+
+@app.route('/issuance/issue/<int:request_id>', methods=['GET', 'POST'])
+def issue_request(request_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    error = None
+    cursor.execute('SELECT supply_requests.*, employees.first_name, employees.last_name, departments.department_name FROM supply_requests LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id LEFT JOIN departments ON supply_requests.department_id = departments.department_id WHERE supply_requests.request_id=%s', (request_id,))
+    req = cursor.fetchone()
+    if req['status'] != 'Approved':
+        conn.close()
+        return redirect('/issuance')
+    cursor.execute('SELECT request_items.*, supplies.supply_name, supplies.unit_id, units.unit_name, COALESCE(inventory.current_stock, 0) AS stock FROM request_items JOIN supplies ON request_items.supply_id = supplies.supply_id LEFT JOIN units ON supplies.unit_id = units.unit_id LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id WHERE request_items.request_id=%s AND request_items.approved_qty > request_items.issued_qty', (request_id,))
+    items = cursor.fetchall()
+    for item in items:
+        item['remaining'] = item['approved_qty'] - item['issued_qty']
+        item['max_issue'] = min(item['remaining'], item['stock'])
+    if request.method == 'POST':
+        issued_by = request.form['issued_by']
+        issuance_date = request.form['issuance_date']
+        remarks = request.form['remarks']
+        total = 0
+        for item in items:
+            qty = int(request.form['issue_' + str(item['request_item_id'])])
+            item['issue_qty'] = qty
+            if qty < 0 or qty > item['remaining']:
+                error = 'Quantity for ' + item['supply_name'] + ' must be between 0 and the remaining approved quantity (' + str(item['remaining']) + ').'
+            elif qty > item['stock']:
+                error = 'Cannot issue ' + str(qty) + ' of ' + item['supply_name'] + '. Only ' + str(item['stock']) + ' in stock.'
+            total += qty
+        if error is None and total == 0:
+            error = 'Enter a quantity to issue for at least one item.'
+        if error is None:
+            cursor.execute('SELECT COALESCE(MAX(issuance_id), 0) + 1 AS next_id, YEAR(CURDATE()) AS year FROM issuances')
+            number_row = cursor.fetchone()
+            issuance_number = 'ISS-' + str(number_row['year']) + '-' + str(number_row['next_id']).zfill(5)
+            cursor.execute('INSERT INTO issuances (issuance_number, request_id, issued_by, issuance_date, remarks) VALUES (%s, %s, %s, %s, %s)', (issuance_number, request_id, issued_by, issuance_date, remarks))
+            issuance_id = cursor.lastrowid
+            for item in items:
+                qty = item['issue_qty']
+                if qty > 0:
+                    new_stock = item['stock'] - qty
+                    cursor.execute('INSERT INTO issuance_items (issuance_id, supply_id, approved_qty, issued_qty, unit_id) VALUES (%s, %s, %s, %s, %s)', (issuance_id, item['supply_id'], item['approved_qty'], qty, item['unit_id']))
+                    cursor.execute('UPDATE inventory SET current_stock=%s WHERE supply_id=%s', (new_stock, item['supply_id']))
+                    cursor.execute('INSERT INTO inventory_transactions (supply_id, transaction_type, quantity, balance_after, reference_type, reference_id) VALUES (%s, %s, %s, %s, %s, %s)', (item['supply_id'], 'Issued', qty, new_stock, 'Issuance', issuance_id))
+                    cursor.execute('UPDATE request_items SET issued_qty = issued_qty + %s WHERE request_item_id=%s', (qty, item['request_item_id']))
+            cursor.execute('SELECT COUNT(*) AS pending FROM request_items WHERE request_id=%s AND approved_qty > issued_qty', (request_id,))
+            if cursor.fetchone()['pending'] == 0:
+                cursor.execute('UPDATE supply_requests SET status="Issued" WHERE request_id=%s', (request_id,))
+            conn.commit()
+            conn.close()
+            return redirect('/issuance')
+    cursor.execute('SELECT CURDATE() AS today')
+    today = cursor.fetchone()['today']
+    conn.close()
+    return render_template('issue_request.html', req=req, items=items, error=error, today=today)
  
 if __name__ == '__main__':  
     app.run(host="0.0.0.0", port=5500) 

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Issue Supplies{% endblock %}
+{% block content %}
+<h1>Issue Supplies - {{ req.request_number }}</h1>
+<p>Requestor: {{ req.first_name }} {{ req.last_name }} | Department: {{ req.department_name }}</p>
+{% if error %}<p class="error-message">{{ error }}</p>{% endif %}
+<div class="card">
+<form method="POST" style="max-width:none; padding:0; box-shadow:none;">
+<table>
+<tr>
+<th>Supply</th>
+<th>Unit</th>
+<th>Approved Qty</th>
+<th>Already Issued</th>
+<th>Remaining</th>
+<th>In Stock</th>
+<th>Issue Now</th>
+</tr>
+{% for item in items %}
+<tr>
+<td>{{ item.supply_name }}</td>
+<td>{{ item.unit_name }}</td>
+<td>{{ item.approved_qty }}</td>
+<td>{{ item.issued_qty }}</td>
+<td>{{ item.remaining }}</td>
+<td>{{ item.stock }}</td>
+<td><input type="number" name="issue_{{ item.request_item_id }}" min="0" max="{{ item.max_issue }}" value="{{ item.issue_qty if item.issue_qty is defined else item.max_issue }}" style="width:90px;" required></td>
+</tr>
+{% endfor %}
+</table>
+<label>Issued By:</label>
+<input type="text" name="issued_by" required>
+<label>Issuance Date:</label>
+<input type="date" name="issuance_date" value="{{ today }}" required>
+<label>Remarks:</label>
+<textarea name="remarks"></textarea>
+<br><br>
+<button type="submit" class="btn">Confirm Issuance</button>
+</form>
+</div>
+<br>
+<a href="/issuance">Back to Issuance Queue</a>
+{% endblock %}

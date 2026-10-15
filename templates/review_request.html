@@ -119,28 +119,6 @@
 {% endif %}
 </div>
 {% endif %}
-<div class="card">
-<h3>Approval History</h3>
-<table>
-<tr>
-<th>Level</th>
-<th>Approver</th>
-<th>Decision</th>
-<th>Date/Time</th>
-<th>Remarks</th>
-</tr>
-{% for entry in history %}
-<tr>
-<td>Level {{ entry.approval_level }} - {{ entry.level_name }}</td>
-<td>{{ entry.approver_name }}</td>
-<td>{% if entry.decision == 'Approved' %}<span class="badge badge-active">Approved</span>{% else %}<span class="badge badge-inactive">{{ entry.decision }}</span>{% endif %}</td>
-<td>{{ entry.decided_at }}</td>
-<td>{{ entry.remarks }}</td>
-</tr>
-{% endfor %}
-</table>
-{% if not history %}<p>No decisions recorded yet.</p>{% endif %}
-</div>
 <br>
 <a href="/requests">Back to Requests List</a>
 {% endblock %}

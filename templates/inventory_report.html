@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Supply Inventory Report{% endblock %}
+{% block content %}
+<h1>Supply Inventory Report</h1>
+<div class="no-print">
+<button class="btn" onclick="window.print()">Print</button>
+<a href="/reports">Back to Reports</a>
+</div>
+<div class="card">
+<h3>Summary</h3>
+<table>
+<tr>
+<th>Total Supplies</th>
+<th>Total Units in Stock</th>
+<th>Total Inventory Value (₱)</th>
+<th>Low Stock</th>
+<th>Out of Stock</th>
+</tr>
+<tr>
+<td>{{ all_supplies|length }}</td>
+<td>{{ total_units }}</td>
+<td>{{ total_value }}</td>
+<td>{{ low_stock|length }}</td>
+<td>{{ out_of_stock|length }}</td>
+</tr>
+</table>
+</div>
+<div class="card">
+<h3>Low-Stock Supplies</h3>
+<table>
+<tr>
+<th>Code</th>
+<th>Supply</th>
+<th>Unit</th>
+<th>Stock</th>
+<th>Reorder Level</th>
+</tr>
+{% for r in low_stock %}
+<tr>
+<td>{{ r.supply_code }}</td>
+<td>{{ r.supply_name }}</td>
+<td>{{ r.unit_name }}</td>
+<td>{{ r.stock }}</td>
+<td>{{ r.reorder_level }}</td>
+</tr>
+{% endfor %}
+</table>
+{% if not low_stock %}<p>No supplies are low on stock.</p>{% endif %}
+</div>
+<div class="card">
+<h3>Out-of-Stock Supplies</h3>
+<table>
+<tr>
+<th>Code</th>
+<th>Supply</th>
+<th>Unit</th>
+<th>Reorder Level</th>
+</tr>
+{% for r in out_of_stock %}
+<tr>
+<td>{{ r.supply_code }}</td>
+<td>{{ r.supply_name }}</td>
+<td>{{ r.unit_name }}</td>
+<td>{{ r.reorder_level }}</td>
+</tr>
+{% endfor %}
+</table>
+{% if not out_of_stock %}<p>No active supplies are out of stock.</p>{% endif %}
+</div>
+<div class="card">
+<h3>Inventory by Category (with Valuation)</h3>
+<table>
+<tr>
+<th>Category</th>
+<th>Supplies</th>
+<th>Units in Stock</th>
+<th>Value (₱)</th>
+</tr>
+{% for c in category_summary %}
+<tr>
+<td>{{ c.category_name }}</td>
+<td>{{ c.supply_count }}</td>
+<td>{{ c.total_stock }}</td>
+<td>{{ c.total_value }}</td>
+</tr>
+{% endfor %}
+<tr>
+<td><b>Total</b></td>
+<td><b>{{ all_supplies|length }}</b></td>
+<td><b>{{ total_units }}</b></td>
+<td><b>{{ total_value }}</b></td>
+</tr>
+</table>
+</div>
+<div class="card">
+<h3>Complete Supply List and Current Inventory</h3>
+<table>
+<tr>
+<th>Code</th>
+<th>Supply</th>
+<th>Category</th>
+<th>Unit</th>
+<th>Stock</th>
+<th>Reorder Level</th>
+<th>Unit Cost (₱)</th>
+<th>Value (₱)</th>
+<th>Stock Status</th>
+</tr>
+{% for r in all_supplies %}
+<tr>
+<td>{{ r.supply_code }}</td>
+<td>{{ r.supply_name }}{% if r.status != 'Active' %} (inactive){% endif %}</td>
+<td>{{ r.category_name }}</td>
+<td>{{ r.unit_name }}</td>
+<td>{{ r.stock }}</td>
+<td>{{ r.reorder_level }}</td>
+<td>{{ r.unit_cost }}</td>
+<td>{{ r.stock_value }}</td>
+<td>{% if r.stock == 0 %}<span class="badge badge-out">Out of Stock</span>{% elif r.stock <= r.reorder_level %}<span class="badge badge-low">Low Stock</span>{% else %}<span class="badge badge-active">Available</span>{% endif %}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+{% endblock %}

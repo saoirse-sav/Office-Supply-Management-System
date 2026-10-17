@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<h1>Reports</h1>
+<div class="card">
+<table>
+<tr>
+<th>Report</th>
+<th>What it shows</th>
+</tr>
+<tr>
+<td><a href="/reports/inventory">Supply Inventory Report</a></td>
+<td>Complete supply list, current stock, low-stock and out-of-stock supplies, inventory by category, and valuation</td>
+</tr>
+<tr>
+<td><a href="/reports/suppliers">Supplier Report</a></td>
+<td>Supplier list, supplies per supplier, transaction history, purchase quantities and costs</td>
+</tr>
+</table>
+</div>
+{% endblock %}

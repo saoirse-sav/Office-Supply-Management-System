@@ -236,18 +236,26 @@ def delete_supply(supply_id):
     conn.close()
     return redirect('/supplies')
 
-@app.route('/supplies/profile/<int:supply_id>') 
-def supply_profile(supply_id): 
-    conn = get_connection() 
-    cursor = conn.cursor(dictionary=True) 
+@app.route('/supplies/profile/<int:supply_id>')
+def supply_profile(supply_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
     cursor.execute('SELECT supplies.*, supply_categories.category_name, units.unit_name FROM supplies LEFT JOIN supply_categories ON supplies.category_id = supply_categories.category_id LEFT JOIN units ON supplies.unit_id = units.unit_id WHERE supplies.supply_id=%s', (supply_id,))
     supply = cursor.fetchone()
-    cursor.execute('SELECT * FROM inventory WHERE supply_id=%s', (supply_id,)) 
-    current_inventory = cursor.fetchone() 
-    cursor.execute('SELECT * FROM inventory_transactions WHERE supply_id=%s AND transaction_type="Stock In" ORDER BY created_at DESC', (supply_id,)) 
+    cursor.execute('SELECT suppliers.supplier_id, suppliers.supplier_code, suppliers.supplier_name, suppliers.contact_person, suppliers.contact_number, suppliers.status FROM suppliers JOIN supplier_supplies ON suppliers.supplier_id = supplier_supplies.supplier_id WHERE supplier_supplies.supply_id=%s', (supply_id,))
+    offered_by = cursor.fetchall()
+    cursor.execute('SELECT * FROM inventory WHERE supply_id=%s', (supply_id,))
+    current_inventory = cursor.fetchone()
+    cursor.execute('SELECT * FROM inventory_transactions WHERE supply_id=%s AND transaction_type="Stock In" ORDER BY transaction_id DESC', (supply_id,))
     stock_in_history = cursor.fetchall()
-    conn.close() 
-    return render_template('supply_profile.html', supply=supply, current_inventory=current_inventory, stock_in_history=stock_in_history)
+    cursor.execute('SELECT inventory_transactions.*, issuances.issuance_number FROM inventory_transactions LEFT JOIN issuances ON inventory_transactions.reference_id = issuances.issuance_id WHERE inventory_transactions.supply_id=%s AND inventory_transactions.transaction_type="Issued" ORDER BY inventory_transactions.transaction_id DESC', (supply_id,))
+    stock_out_history = cursor.fetchall()
+    cursor.execute('SELECT supply_requests.request_number, supply_requests.request_date, supply_requests.status, employees.first_name, employees.last_name, request_items.requested_qty, request_items.approved_qty, request_items.issued_qty FROM request_items JOIN supply_requests ON request_items.request_id = supply_requests.request_id LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id WHERE request_items.supply_id=%s ORDER BY supply_requests.request_id DESC', (supply_id,))
+    request_history = cursor.fetchall()
+    cursor.execute('SELECT issuances.issuance_id, issuances.issuance_number, issuances.issuance_date, issuances.issued_by, supply_requests.request_number, issuance_items.issued_qty FROM issuance_items JOIN issuances ON issuance_items.issuance_id = issuances.issuance_id JOIN supply_requests ON issuances.request_id = supply_requests.request_id WHERE issuance_items.supply_id=%s ORDER BY issuances.issuance_id DESC', (supply_id,))
+    issuance_history = cursor.fetchall()
+    conn.close()
+    return render_template('supply_profile.html', supply=supply, offered_by=offered_by, current_inventory=current_inventory, stock_in_history=stock_in_history, stock_out_history=stock_out_history, request_history=request_history, issuance_history=issuance_history)
 
 @app.route('/suppliers') 
 def suppliers():    
@@ -881,6 +889,46 @@ def issuance_document(issuance_id):
     items = cursor.fetchall()
     conn.close()
     return render_template('issuance_document.html', issuance=issuance, items=items)
+
+@app.route('/reports')
+def reports_home():
+    return render_template('reports.html')
+
+
+@app.route('/reports/inventory')
+def inventory_report():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute('SELECT supplies.supply_code, supplies.supply_name, supplies.reorder_level, supplies.unit_cost, supplies.status, supply_categories.category_name, units.unit_name, COALESCE(inventory.current_stock, 0) AS stock, COALESCE(inventory.current_stock, 0) * supplies.unit_cost AS stock_value FROM supplies LEFT JOIN supply_categories ON supplies.category_id = supply_categories.category_id LEFT JOIN units ON supplies.unit_id = units.unit_id LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id ORDER BY supply_categories.category_name, supplies.supply_name')
+    all_supplies = cursor.fetchall()
+    conn.close()
+    low_stock = [row for row in all_supplies if row['status'] == 'Active' and row['stock'] > 0 and row['stock'] <= row['reorder_level']]
+    out_of_stock = [row for row in all_supplies if row['status'] == 'Active' and row['stock'] == 0]
+    categories = {}
+    for row in all_supplies:
+        name = row['category_name'] or 'Uncategorized'
+        if name not in categories:
+            categories[name] = {'category_name': name, 'supply_count': 0, 'total_stock': 0, 'total_value': 0}
+        categories[name]['supply_count'] += 1
+        categories[name]['total_stock'] += row['stock']
+        categories[name]['total_value'] += row['stock_value']
+    category_summary = sorted(categories.values(), key=lambda c: c['category_name'])
+    total_units = sum(row['stock'] for row in all_supplies)
+    total_value = sum(row['stock_value'] for row in all_supplies)
+    return render_template('inventory_report.html', all_supplies=all_supplies, low_stock=low_stock, out_of_stock=out_of_stock, category_summary=category_summary, total_units=total_units, total_value=total_value)
+
+@app.route('/reports/suppliers')
+def supplier_report():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute('SELECT suppliers.supplier_code, suppliers.supplier_name, suppliers.contact_person, suppliers.status, (SELECT GROUP_CONCAT(supplies.supply_name ORDER BY supplies.supply_name SEPARATOR ", ") FROM supplies JOIN supplier_supplies ON supplies.supply_id = supplier_supplies.supply_id WHERE supplier_supplies.supplier_id = suppliers.supplier_id) AS supply_names, (SELECT COUNT(*) FROM supply_receipts WHERE supply_receipts.supplier_id = suppliers.supplier_id) AS delivery_count, (SELECT COALESCE(SUM(receipt_items.quantity), 0) FROM receipt_items JOIN supply_receipts ON receipt_items.receipt_id = supply_receipts.receipt_id WHERE supply_receipts.supplier_id = suppliers.supplier_id) AS total_quantity, (SELECT COALESCE(SUM(receipt_items.total_cost), 0) FROM receipt_items JOIN supply_receipts ON receipt_items.receipt_id = supply_receipts.receipt_id WHERE supply_receipts.supplier_id = suppliers.supplier_id) AS total_cost FROM suppliers ORDER BY suppliers.supplier_name')
+    supplier_list = cursor.fetchall()
+    cursor.execute('SELECT supply_receipts.receipt_number, supply_receipts.delivery_date, suppliers.supplier_name, supplies.supply_name, receipt_items.quantity, receipt_items.unit_cost, receipt_items.total_cost FROM receipt_items JOIN supply_receipts ON receipt_items.receipt_id = supply_receipts.receipt_id JOIN suppliers ON supply_receipts.supplier_id = suppliers.supplier_id JOIN supplies ON receipt_items.supply_id = supplies.supply_id ORDER BY supply_receipts.delivery_date DESC, supply_receipts.receipt_id DESC')
+    transactions = cursor.fetchall()
+    conn.close()
+    grand_quantity = sum(row['quantity'] for row in transactions)
+    grand_cost = sum(row['total_cost'] for row in transactions)
+    return render_template('supplier_report.html', supplier_list=supplier_list, transactions=transactions, grand_quantity=grand_quantity, grand_cost=grand_cost)
  
 if __name__ == '__main__':  
     app.run(host="0.0.0.0", port=5500) 

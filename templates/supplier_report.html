@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Supplier Report{% endblock %}
+{% block content %}
+<h1>Supplier Report</h1>
+<div class="no-print">
+<button class="btn" onclick="window.print()">Print</button>
+<a href="/reports">Back to Reports</a>
+</div>
+<div class="card">
+<h3>Suppliers and Purchase Totals</h3>
+<table>
+<tr>
+<th>Code</th>
+<th>Supplier</th>
+<th>Status</th>
+<th>Supplies Offered</th>
+<th>Deliveries</th>
+<th>Qty Purchased</th>
+<th>Total Cost (₱)</th>
+</tr>
+{% for s in supplier_list %}
+<tr>
+<td>{{ s.supplier_code }}</td>
+<td>{{ s.supplier_name }}</td>
+<td>{% if s.status == 'Active' %}<span class="badge badge-active">Active</span>{% else %}<span class="badge badge-inactive">Inactive</span>{% endif %}</td>
+<td>{{ s.supply_names or 'None assigned' }}</td>
+<td>{{ s.delivery_count }}</td>
+<td>{{ s.total_quantity }}</td>
+<td>{{ s.total_cost }}</td>
+</tr>
+{% endfor %}
+<tr>
+<td colspan="5"><b>Total</b></td>
+<td><b>{{ grand_quantity }}</b></td>
+<td><b>{{ grand_cost }}</b></td>
+</tr>
+</table>
+</div>
+<div class="card">
+<h3>Transaction History (all deliveries, newest first)</h3>
+<table>
+<tr>
+<th>Date</th>
+<th>Receipt No.</th>
+<th>Supplier</th>
+<th>Supply</th>
+<th>Qty</th>
+<th>Unit Cost (₱)</th>
+<th>Total Cost (₱)</th>
+</tr>
+{% for t in transactions %}
+<tr>
+<td>{{ t.delivery_date }}</td>
+<td>{{ t.receipt_number }}</td>
+<td>{{ t.supplier_name }}</td>
+<td>{{ t.supply_name }}</td>
+<td>{{ t.quantity }}</td>
+<td>{{ t.unit_cost }}</td>
+<td>{{ t.total_cost }}</td>
+</tr>
+{% endfor %}
+</table>
+{% if not transactions %}<p>No deliveries recorded yet.</p>{% endif %}
+</div>
+{% endblock %}

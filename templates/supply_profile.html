@@ -1,84 +1,119 @@
-{% extends "base.html" %} 
-{% block title %}Supply Profile{% endblock %} 
-{% block content %} 
-<h1>{{ supply.supply_name }}</h1> 
-<div class="card"> 
-    <h3>Supply Information</h3> 
-    <table> 
-        <tr>
-            <td><b>Code</b></td><td>{{ supply.supply_code }}</td>
-        </tr> 
-        <tr>
-            <td><b>Category</b></td>
-            <td>{{ supply.category_name }}</td>
-        </tr> 
-        <tr>
-            <td><b>Unit</b></td><td>{{ supply.unit_name }}</td>
-        </tr> 
-        <tr>
-            <td><b>Brand</b></td>
-            <td>{{ supply.brand }}</td>
-        </tr> 
-        <tr>
-            <td><b>Description</b></td>
-            <td>{{ supply.description }}</td>
-        </tr> 
-        <tr>
-            <td><b>Reorder Level</b></td>
-            <td>{{ supply.reorder_level }}</td>
-        </tr> 
-        <tr>
-            <td><b>Maximum Stock</b></td>
-            <td>{{ supply.maximum_stock }}</td>
-        </tr> 
-        <tr>
-            <td><b>Unit Cost</b></td>
-            <td>{{ supply.unit_cost }}</td>
-        </tr> 
-        <tr>
-            <td><b>Status</b></td>
-            <td>{% if supply.status == 'Active' %}<span class="badge badge-active">Active</span>{% else %}<span class="badge badge-inactive">Inactive</span>{% endif %}</td>
-        </tr> 
-    </table> 
-</div> 
-<div class="card"> 
-    <h3>Current Stock</h3>
-    <p><a href="/inventory/history/{{ supply.supply_id }}">View full stock history</a></p> 
-    {% if current_inventory %} 
-    <p><b>{{ current_inventory.current_stock }}</b> {{ supply.unit_name }}</p> 
-    {% else %} 
-    <p>No stock received yet.</p> 
-    {% endif %} 
-</div> 
-<div class="card"> 
-    <h3>Stock In History</h3> 
-    <table> 
-        <tr>
-            <th>Date</th>
-            <th>Quantity</th>
-            <th>Balance After</th>
-        </tr> 
-        {% for entry in stock_in_history %} 
-            <tr>
-                <td>{{ entry.created_at }}</td>
-                <td>{{ entry.quantity }}</td>
-                <td>{{ entry.balance_after }}</td>
-            </tr> 
-            {% endfor %} 
-        </table> 
-    </div> 
-<div class="card"> 
-    <h3>Stock Out History</h3> 
-    <p>Not available yet — coming in Labs 31-36 (Supply Issuance).</p> 
-</div> 
-<div class="card"> 
-    <h3>Request History</h3> 
-    <p>Not available yet — coming in Labs 17-21 (Supply Request Management).</p> 
-</div> 
-<div class="card"> 
-    <h3>Issuance History</h3> 
-    <p>Not available yet — coming in Labs 31-36 (Supply Issuance).</p> 
-</div> 
-<br> 
-<a href="/supplies">Back to Supplies List</a> 
+{% extends "base.html" %}
+{% block title %}Supply Profile{% endblock %}
+{% block content %}
+<h1>{{ supply.supply_name }}</h1>
+<div class="card">
+<h3>Supply Information</h3>
+<table>
+<tr><td><b>Code</b></td><td>{{ supply.supply_code }}</td></tr>
+<tr><td><b>Category</b></td><td>{{ supply.category_name }}</td></tr>
+<tr><td><b>Unit</b></td><td>{{ supply.unit_name }}</td></tr>
+<tr><td><b>Brand</b></td><td>{{ supply.brand }}</td></tr>
+<tr><td><b>Description</b></td><td>{{ supply.description }}</td></tr>
+<tr><td><b>Reorder Level</b></td><td>{{ supply.reorder_level }}</td></tr>
+<tr><td><b>Maximum Stock</b></td><td>{{ supply.maximum_stock }}</td></tr>
+<tr><td><b>Unit Cost</b></td><td>{{ supply.unit_cost }}</td></tr>
+<tr><td><b>Status</b></td><td>{% if supply.status == 'Active' %}<span class="badge badge-active">Active</span>{% else %}<span class="badge badge-inactive">Inactive</span>{% endif %}</td></tr>
+</table>
+</div>
+<div class="card">
+<h3>Supplier Information</h3>
+<table>
+<tr>
+<th>Code</th>
+<th>Supplier</th>
+<th>Contact Person</th>
+<th>Contact Number</th>
+<th>Status</th>
+</tr>
+{% for s in offered_by %}
+<tr>
+<td>{{ s.supplier_code }}</td>
+<td><a href="/suppliers/profile/{{ s.supplier_id }}">{{ s.supplier_name }}</a></td>
+<td>{{ s.contact_person }}</td>
+<td>{{ s.contact_number }}</td>
+<td>{% if s.status == 'Active' %}<span class="badge badge-active">Active</span>{% else %}<span class="badge badge-inactive">Inactive</span>{% endif %}</td>
+</tr>
+{% endfor %}
+</table>
+{% if not offered_by %}<p>No supplier is assigned to this supply yet. Assign it from a supplier's profile with Manage Supplies.</p>{% endif %}
+</div>
+<div class="card">
+<h3>Current Stock</h3>
+<p><a href="/inventory/history/{{ supply.supply_id }}">View full stock history</a></p>
+{% if current_inventory %}
+<p><b>{{ current_inventory.current_stock }}</b> {{ supply.unit_name }}</p>
+{% else %}
+<p>No stock received yet.</p>
+{% endif %}
+</div>
+<div class="card">
+<h3>Stock In History</h3>
+<table>
+<tr><th>Date</th><th>Quantity</th><th>Balance After</th></tr>
+{% for entry in stock_in_history %}
+<tr><td>{{ entry.created_at }}</td><td>{{ entry.quantity }}</td><td>{{ entry.balance_after }}</td></tr>
+{% endfor %}
+</table>
+</div>
+<div class="card">
+<h3>Stock Out History</h3>
+<table>
+<tr><th>Date</th><th>Issuance No.</th><th>Quantity</th><th>Balance After</th></tr>
+{% for entry in stock_out_history %}
+<tr><td>{{ entry.created_at }}</td><td>{{ entry.issuance_number }}</td><td>{{ entry.quantity }}</td><td>{{ entry.balance_after }}</td></tr>
+{% endfor %}
+</table>
+{% if not stock_out_history %}<p>Nothing has been issued yet.</p>{% endif %}
+</div>
+<div class="card">
+<h3>Request History</h3>
+<table>
+<tr>
+<th>Request No.</th>
+<th>Requestor</th>
+<th>Date</th>
+<th>Requested</th>
+<th>Approved</th>
+<th>Issued</th>
+<th>Status</th>
+</tr>
+{% for r in request_history %}
+<tr>
+<td>{{ r.request_number }}</td>
+<td>{{ r.first_name }} {{ r.last_name }}</td>
+<td>{{ r.request_date }}</td>
+<td>{{ r.requested_qty }}</td>
+<td>{{ r.approved_qty }}</td>
+<td>{{ r.issued_qty }}</td>
+<td>{{ r.status }}</td>
+</tr>
+{% endfor %}
+</table>
+{% if not request_history %}<p>This supply has not been requested yet.</p>{% endif %}
+</div>
+<div class="card">
+<h3>Issuance History</h3>
+<table>
+<tr>
+<th>Issuance No.</th>
+<th>Date</th>
+<th>Request No.</th>
+<th>Issued By</th>
+<th>Quantity Issued</th>
+</tr>
+{% for i in issuance_history %}
+<tr>
+<td><a href="/issuance/document/{{ i.issuance_id }}">{{ i.issuance_number }}</a></td>
+<td>{{ i.issuance_date }}</td>
+<td>{{ i.request_number }}</td>
+<td>{{ i.issued_by }}</td>
+<td>{{ i.issued_qty }}</td>
+</tr>
+{% endfor %}
+</table>
+{% if not issuance_history %}<p>No issuances recorded for this supply yet.</p>{% endif %}
+</div>
+<br>
+<a href="/supplies">Back to Supplies List</a>
 {% endblock %}

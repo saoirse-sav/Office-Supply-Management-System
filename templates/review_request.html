@@ -68,7 +68,7 @@
     <td>{{ item.supply_name }}</td>
     <td>{{ item.requested_qty }}</td>
     <td>{{ item.current_stock or 0 }}</td>
-    <td><input type="number" name="approved_{{ item.request_item_id }}" min="0" max="{{ item.requested_qty }}" value="{{ item.approved_qty }}" style="width:90px;" required></td>
+    <td><input type="number" name="approved_{{ item.request_item_id }}" min="0" max="{{ item.requested_qty }}"value="{{ item.approved_qty if item.approved_qty > 0 else [item.requested_qty, (item.current_stock or 0)]|min }}" style="width:90px;" required></td>
 </tr>
 {% endfor %}
 </table>

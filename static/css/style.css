@@ -177,3 +177,48 @@ form {
     background-color: #FBE5D8;
     color: #A0481F;
 }
+
+.document {
+    background-color: white;
+    padding: 2rem;
+    max-width: 800px;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    margin-top: 1rem;
+}
+
+.signature-row {
+    display: flex;
+    gap: 3rem;
+    margin-top: 3rem;
+}
+
+.signature-box {
+    flex: 1;
+    text-align: center;
+}
+
+.signature-line {
+    border-top: 1px solid #2C2C2A;
+    margin-top: 3rem;
+    padding-top: 6px;
+    font-size: 14px;
+}
+
+@media print {
+    .sidebar, .no-print {
+        display: none;
+    }
+    body {
+        display: block;
+        background-color: white;
+    }
+    .main-content {
+        padding: 0;
+    }
+    .document {
+        box-shadow: none;
+        max-width: none;
+        padding: 0;
+    }
+}

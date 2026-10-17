@@ -4,7 +4,8 @@
 <h1>Receipt {{ receipt.receipt_number }}</h1> 
 <p>Delivery Date: {{ receipt.delivery_date }} | PO Reference: {{ receipt.po_reference }}</p> 
 <div class="card"> 
-    <h3>Add Item</h3> 
+    <h3>Add Item</h3>
+    {% if not supplies %}<p class="error-message">This supplier has no active supplies assigned yet. Open the supplier's profile and click Manage Supplies first.</p>{% endif %} 
     <form method="POST"> 
         <label>Supply:</label> 
         <select name="supply_id" required> {% for supply in supplies %} <option value="{{ supply.supply_id }}">{{ supply.supply_code }} - {{ supply.supply_name }}</option> {% endfor %} </select> 

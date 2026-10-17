@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Issuance Records{% endblock %}
+{% block content %}
+<h1>Issuance Records</h1>
+<div class="card">
+<table>
+<tr>
+<th>Issuance No.</th>
+<th>Request No.</th>
+<th>Requestor</th>
+<th>Department</th>
+<th>Date</th>
+<th>Issued By</th>
+<th>Action</th>
+</tr>
+{% for r in records %}
+<tr>
+<td>{{ r.issuance_number }}</td>
+<td>{{ r.request_number }}</td>
+<td>{{ r.first_name }} {{ r.last_name }}</td>
+<td>{{ r.department_name }}</td>
+<td>{{ r.issuance_date }}</td>
+<td>{{ r.issued_by }}</td>
+<td><a href="/issuance/document/{{ r.issuance_id }}">View / Print</a></td>
+</tr>
+{% endfor %}
+</table>
+{% if not records %}<p>No supplies have been issued yet.</p>{% endif %}
+</div>
+{% endblock %}

@@ -313,16 +313,19 @@ def toggle_supplier(supplier_id):
     conn.close() 
     return redirect('/suppliers') 
 
-@app.route('/suppliers/profile/<int:supplier_id>') 
-def supplier_profile(supplier_id): 
-    conn = get_connection() 
-    cursor = conn.cursor(dictionary=True) 
-    cursor.execute('SELECT * FROM suppliers WHERE supplier_id=%s', (supplier_id,)) 
-    supplier = cursor.fetchone() 
-    cursor.execute('SELECT supplies.* FROM supplies JOIN supplier_supplies ON supplies.supply_id = supplier_supplies.supply_id WHERE supplier_supplies.supplier_id=%s', (supplier_id,)) 
+@app.route('/suppliers/profile/<int:supplier_id>')
+def supplier_profile(supplier_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute('SELECT * FROM suppliers WHERE supplier_id=%s', (supplier_id,))
+    supplier = cursor.fetchone()
+    cursor.execute('SELECT supplies.* FROM supplies JOIN supplier_supplies ON supplies.supply_id = supplier_supplies.supply_id WHERE supplier_supplies.supplier_id=%s', (supplier_id,))
     assigned_supplies = cursor.fetchall()
-    conn.close() 
-    return render_template('supplier_profile.html', supplier=supplier, assigned_supplies=assigned_supplies)
+    cursor.execute('SELECT supply_receipts.receipt_number, supply_receipts.delivery_date, supplies.supply_name, receipt_items.quantity, receipt_items.unit_cost, receipt_items.total_cost FROM receipt_items JOIN supply_receipts ON receipt_items.receipt_id = supply_receipts.receipt_id JOIN supplies ON receipt_items.supply_id = supplies.supply_id WHERE supply_receipts.supplier_id=%s ORDER BY supply_receipts.delivery_date DESC, supply_receipts.receipt_id DESC', (supplier_id,))
+    purchases = cursor.fetchall()
+    grand_total = sum(row['total_cost'] for row in purchases)
+    conn.close()
+    return render_template('supplier_profile.html', supplier=supplier, assigned_supplies=assigned_supplies, purchases=purchases, grand_total=grand_total)
 
 @app.route('/suppliers/assign/<int:supplier_id>', methods=['GET', 'POST'])
 def assign_supplies(supplier_id):
@@ -355,34 +358,34 @@ def receipts():
     conn.close() 
     return render_template('receipts.html', receipts=all_receipts)
 
-@app.route('/receipts/items/<int:receipt_id>', methods=['GET', 'POST']) 
-def receipt_items(receipt_id): 
-    conn = get_connection() 
-    cursor = conn.cursor(dictionary=True) 
-    if request.method == 'POST': 
-        supply_id = request.form['supply_id'] 
-        quantity = int(request.form['quantity']) 
-        unit_cost = float(request.form['unit_cost']) 
-        total_cost = quantity * unit_cost 
-        batch_reference = request.form['batch_reference'] 
+@app.route('/receipts/items/<int:receipt_id>', methods=['GET', 'POST'])
+def receipt_items(receipt_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    if request.method == 'POST':
+        supply_id = request.form['supply_id']
+        quantity = int(request.form['quantity'])
+        unit_cost = float(request.form['unit_cost'])
+        total_cost = quantity * unit_cost
+        batch_reference = request.form['batch_reference']
         cursor.execute('INSERT INTO receipt_items (receipt_id, supply_id, quantity, unit_cost, total_cost, batch_reference) VALUES (%s, %s, %s, %s, %s, %s)', (receipt_id, supply_id, quantity, unit_cost, total_cost, batch_reference))
-        cursor.execute('SELECT * FROM inventory WHERE supply_id=%s', (supply_id,)) 
-        existing_inventory = cursor.fetchone() 
-        if existing_inventory: 
-            new_stock = existing_inventory['current_stock'] + quantity 
-            cursor.execute('UPDATE inventory SET current_stock=%s WHERE supply_id=%s', (new_stock, supply_id)) 
-        else: 
-            new_stock = quantity 
-            cursor.execute('INSERT INTO inventory (supply_id, current_stock) VALUES (%s, %s)', (supply_id, new_stock)) 
+        cursor.execute('SELECT * FROM inventory WHERE supply_id=%s', (supply_id,))
+        existing_inventory = cursor.fetchone()
+        if existing_inventory:
+            new_stock = existing_inventory['current_stock'] + quantity
+            cursor.execute('UPDATE inventory SET current_stock=%s WHERE supply_id=%s', (new_stock, supply_id))
+        else:
+            new_stock = quantity
+            cursor.execute('INSERT INTO inventory (supply_id, current_stock) VALUES (%s, %s)', (supply_id, new_stock))
         cursor.execute('INSERT INTO inventory_transactions (supply_id, transaction_type, quantity, balance_after, reference_type, reference_id) VALUES (%s, %s, %s, %s, %s, %s)', (supply_id, 'Stock In', quantity, new_stock, 'Receipt', receipt_id))
-        conn.commit() 
-    cursor.execute('SELECT * FROM supply_receipts WHERE receipt_id=%s', (receipt_id,)) 
-    receipt = cursor.fetchone() 
-    cursor.execute('SELECT * FROM supplies') 
-    supply_list = cursor.fetchall() 
-    cursor.execute('SELECT receipt_items.*, supplies.supply_name FROM receipt_items JOIN supplies ON receipt_items.supply_id = supplies.supply_id WHERE receipt_items.receipt_id=%s', (receipt_id,)) 
-    items = cursor.fetchall() 
-    conn.close() 
+        conn.commit()
+    cursor.execute('SELECT * FROM supply_receipts WHERE receipt_id=%s', (receipt_id,))
+    receipt = cursor.fetchone()
+    cursor.execute('SELECT supplies.* FROM supplies JOIN supplier_supplies ON supplies.supply_id = supplier_supplies.supply_id WHERE supplier_supplies.supplier_id=%s AND supplies.status="Active"', (receipt['supplier_id'],))
+    supply_list = cursor.fetchall()
+    cursor.execute('SELECT receipt_items.*, supplies.supply_name FROM receipt_items JOIN supplies ON receipt_items.supply_id = supplies.supply_id WHERE receipt_items.receipt_id=%s', (receipt_id,))
+    items = cursor.fetchall()
+    conn.close()
     return render_template('receipt_items.html', receipt=receipt, supplies=supply_list, items=items)
 
 @app.route('/inventory/transactions') 
@@ -852,11 +855,32 @@ def issue_request(request_id):
                 cursor.execute('UPDATE supply_requests SET status="Issued" WHERE request_id=%s', (request_id,))
             conn.commit()
             conn.close()
-            return redirect('/issuance')
+            return redirect('/issuance/document/' + str(issuance_id))
     cursor.execute('SELECT CURDATE() AS today')
     today = cursor.fetchone()['today']
     conn.close()
     return render_template('issue_request.html', req=req, items=items, error=error, today=today)
+
+@app.route('/issuances')
+def issuance_records():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute('SELECT issuances.*, supply_requests.request_number, employees.first_name, employees.last_name, departments.department_name FROM issuances JOIN supply_requests ON issuances.request_id = supply_requests.request_id LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id LEFT JOIN departments ON supply_requests.department_id = departments.department_id ORDER BY issuances.issuance_id DESC')
+    records = cursor.fetchall()
+    conn.close()
+    return render_template('issuance_records.html', records=records)
+
+
+@app.route('/issuance/document/<int:issuance_id>')
+def issuance_document(issuance_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute('SELECT issuances.*, supply_requests.request_number, employees.first_name, employees.last_name, departments.department_name FROM issuances JOIN supply_requests ON issuances.request_id = supply_requests.request_id LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id LEFT JOIN departments ON supply_requests.department_id = departments.department_id WHERE issuances.issuance_id=%s', (issuance_id,))
+    issuance = cursor.fetchone()
+    cursor.execute('SELECT issuance_items.*, supplies.supply_code, supplies.supply_name, units.unit_name FROM issuance_items JOIN supplies ON issuance_items.supply_id = supplies.supply_id LEFT JOIN units ON issuance_items.unit_id = units.unit_id WHERE issuance_items.issuance_id=%s', (issuance_id,))
+    items = cursor.fetchall()
+    conn.close()
+    return render_template('issuance_document.html', issuance=issuance, items=items)
  
 if __name__ == '__main__':  
     app.run(host="0.0.0.0", port=5500) 

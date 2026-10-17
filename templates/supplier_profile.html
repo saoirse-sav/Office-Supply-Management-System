@@ -49,9 +49,29 @@
         </tr> {% endfor %} 
     </table> 
 </div>
-<div class="card"> 
-    <h3>Transaction History</h3> 
-    <p>Not available yet — coming in Lab 12 (Supplier Transaction History).</p> 
-</div> <br> 
+<div class="card">
+<h3>Transaction History</h3>
+<table>
+<tr>
+<th>Receipt No.</th>
+<th>Date</th>
+<th>Supply</th>
+<th>Qty Received</th>
+<th>Unit Cost</th>
+<th>Total Cost</th>
+</tr>
+{% for p in purchases %}
+<tr>
+<td>{{ p.receipt_number }}</td>
+<td>{{ p.delivery_date }}</td>
+<td>{{ p.supply_name }}</td>
+<td>{{ p.quantity }}</td>
+<td>{{ p.unit_cost }}</td>
+<td>{{ p.total_cost }}</td>
+</tr>
+{% endfor %}
+</table>
+{% if purchases %}<p><b>Total purchase amount: {{ grand_total }}</b></p>{% else %}<p>No deliveries recorded for this supplier yet.</p>{% endif %}
+</div> 
 <a href="/suppliers">Back to Suppliers List</a> 
 {% endblock %}

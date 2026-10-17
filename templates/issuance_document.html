@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Issuance {{ issuance.issuance_number }}{% endblock %}
+{% block content %}
+<div class="no-print">
+<button class="btn" onclick="window.print()">Print</button>
+<a href="/issuances">Back to Issuance Records</a>
+</div>
+<div class="document">
+<h1>Supply Issuance Acknowledgment</h1>
+<table>
+<tr>
+<td><b>Issuance No.</b></td><td>{{ issuance.issuance_number }}</td>
+<td><b>Date</b></td><td>{{ issuance.issuance_date }}</td>
+</tr>
+<tr>
+<td><b>Request No.</b></td><td>{{ issuance.request_number }}</td>
+<td><b>Department</b></td><td>{{ issuance.department_name }}</td>
+</tr>
+<tr>
+<td><b>Requestor</b></td><td>{{ issuance.first_name }} {{ issuance.last_name }}</td>
+<td><b>Issued By</b></td><td>{{ issuance.issued_by }}</td>
+</tr>
+</table>
+<h3 style="margin-top:1.5rem;">Items Issued</h3>
+<table>
+<tr>
+<th>Code</th>
+<th>Supply</th>
+<th>Unit</th>
+<th>Approved Qty</th>
+<th>Issued Qty</th>
+</tr>
+{% for item in items %}
+<tr>
+<td>{{ item.supply_code }}</td>
+<td>{{ item.supply_name }}</td>
+<td>{{ item.unit_name }}</td>
+<td>{{ item.approved_qty }}</td>
+<td>{{ item.issued_qty }}</td>
+</tr>
+{% endfor %}
+</table>
+{% if issuance.remarks %}<p style="margin-top:1rem;"><b>Remarks:</b> {{ issuance.remarks }}</p>{% endif %}
+<p style="margin-top:1.5rem;">I acknowledge that I have received the items listed above in good condition.</p>
+<div class="signature-row">
+<div class="signature-box">
+<div class="signature-line">Issued by: {{ issuance.issued_by }}<br>Signature over printed name / Date</div>
+</div>
+<div class="signature-box">
+<div class="signature-line">Received by: {{ issuance.first_name }} {{ issuance.last_name }}<br>Signature over printed name / Date</div>
+</div>
+</div>
+</div>
+{% endblock %}

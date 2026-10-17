@@ -929,6 +929,81 @@ def supplier_report():
     grand_quantity = sum(row['quantity'] for row in transactions)
     grand_cost = sum(row['total_cost'] for row in transactions)
     return render_template('supplier_report.html', supplier_list=supplier_list, transactions=transactions, grand_quantity=grand_quantity, grand_cost=grand_cost)
+
+def status_group(status):
+    # Groups the detailed statuses into the four report categories
+    if status in ('Submitted', 'Under Review', 'For Approval'):
+        return 'pending'
+    if status in ('Approved', 'Issued'):
+        return 'approved'
+    if status == 'Rejected':
+        return 'rejected'
+    return 'other'
+
+
+def add_to_summary(summary, name, group):
+    # Adds one request to the count for a department or employee
+    if name not in summary:
+        summary[name] = {'name': name, 'total': 0, 'pending': 0, 'approved': 0, 'rejected': 0, 'other': 0}
+    summary[name]['total'] += 1
+    summary[name][group] += 1
+
+
+@app.route('/reports/requests')
+def request_report():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    date_from = request.args.get('date_from', '')
+    date_to = request.args.get('date_to', '')
+    department_filter = request.args.get('department_id', '')
+    employee_filter = request.args.get('employee_id', '')
+    status_filter = request.args.get('status_group', '')
+    query = 'SELECT supply_requests.request_number, supply_requests.request_date, supply_requests.priority, supply_requests.status, employees.first_name, employees.last_name, departments.department_name, (SELECT COUNT(*) FROM request_items WHERE request_items.request_id = supply_requests.request_id) AS item_count FROM supply_requests LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id LEFT JOIN departments ON supply_requests.department_id = departments.department_id'
+    conditions = []
+    params = []
+    if date_from:
+        conditions.append('supply_requests.request_date >= %s')
+        params.append(date_from)
+    if date_to:
+        conditions.append('supply_requests.request_date <= %s')
+        params.append(date_to)
+    if department_filter:
+        conditions.append('supply_requests.department_id = %s')
+        params.append(department_filter)
+    if employee_filter:
+        conditions.append('supply_requests.employee_id = %s')
+        params.append(employee_filter)
+    if status_filter == 'pending':
+        conditions.append('supply_requests.status IN ("Submitted", "Under Review", "For Approval")')
+    elif status_filter == 'approved':
+        conditions.append('supply_requests.status IN ("Approved", "Issued")')
+    elif status_filter == 'rejected':
+        conditions.append('supply_requests.status = "Rejected"')
+    elif status_filter == 'returned':
+        conditions.append('supply_requests.status = "Returned"')
+    elif status_filter == 'draft':
+        conditions.append('supply_requests.status = "Draft"')
+    if conditions:
+        query += ' WHERE ' + ' AND '.join(conditions)
+    query += ' ORDER BY supply_requests.request_date DESC, supply_requests.request_id DESC'
+    cursor.execute(query, tuple(params))
+    rows = cursor.fetchall()
+    cursor.execute('SELECT * FROM departments ORDER BY department_name')
+    department_list = cursor.fetchall()
+    cursor.execute('SELECT * FROM employees ORDER BY first_name, last_name')
+    employee_list = cursor.fetchall()
+    conn.close()
+    totals = {'total': len(rows), 'pending': 0, 'approved': 0, 'rejected': 0, 'other': 0}
+    by_department = {}
+    by_employee = {}
+    for row in rows:
+        group = status_group(row['status'])
+        totals[group] += 1
+        add_to_summary(by_department, row['department_name'] or 'No department', group)
+        add_to_summary(by_employee, ((row['first_name'] or '') + ' ' + (row['last_name'] or '')).strip(), group)
+    department_summary = sorted(by_department.values(), key=lambda d: d['name'])
+    employee_summary = sorted(by_employee.values(), key=lambda d: d['name'])
+    return render_template('request_report.html', rows=rows, totals=totals, department_summary=department_summary, employee_summary=employee_summary, department_list=department_list, employee_list=employee_list, date_from=date_from, date_to=date_to, selected_department=department_filter, selected_employee=employee_filter, selected_status=status_filter)
  
 if __name__ == '__main__':  
     app.run(host="0.0.0.0", port=5500) 

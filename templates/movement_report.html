@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Inventory Movement Report{% endblock %}
+{% block content %}
+<h1>Inventory Movement Report</h1>
+<div class="no-print">
+<button class="btn" onclick="window.print()">Print</button>
+<a href="/reports">Back to Reports</a>
+<br><br>
+<form method="GET" style="max-width:none;">
+<label>From:</label>
+<input type="date" name="date_from" value="{{ date_from }}" style="width:auto;">
+<label>To:</label>
+<input type="date" name="date_to" value="{{ date_to }}" style="width:auto;">
+<label>Supply:</label>
+<select name="supply_id" style="width:auto;">
+<option value="">All supplies</option>
+{% for s in supply_options %}
+<option value="{{ s.supply_id }}" {% if selected_supply == s.supply_id|string %}selected{% endif %}>{{ s.supply_code }} - {{ s.supply_name }}</option>
+{% endfor %}
+</select>
+<label>Transaction type:</label>
+<select name="transaction_type" style="width:auto;">
+<option value="">All types</option>
+<option value="Stock In" {% if selected_type == 'Stock In' %}selected{% endif %}>Stock In</option>
+<option value="Issued" {% if selected_type == 'Issued' %}selected{% endif %}>Stock Out (Issued)</option>
+<option value="Adjustment" {% if selected_type == 'Adjustment' %}selected{% endif %}>Adjustments</option>
+</select>
+<br><br>
+<button type="submit" class="btn">Filter</button>
+<a href="/reports/movement">Clear</a>
+</form>
+</div>
+<div class="card">
+<h3>Summary</h3>
+<table>
+<tr>
+<th>Total Stock In</th>
+<th>Total Stock Out</th>
+<th>Net Adjustments</th>
+</tr>
+<tr>
+<td>{{ totals.stock_in }}</td>
+<td>{{ totals.stock_out }}</td>
+<td>{% if totals.adjusted > 0 %}+{% endif %}{{ totals.adjusted }}</td>
+</tr>
+</table>
+</div>
+<div class="card">
+<h3>Movement by Supply</h3>
+<table>
+<tr>
+<th>Code</th>
+<th>Supply</th>
+<th>Stock In</th>
+<th>Stock Out</th>
+<th>Net Adjustments</th>
+<th>Current Balance (today)</th>
+</tr>
+{% for m in movement_list %}
+<tr>
+<td>{{ m.code }}</td>
+<td>{{ m.name }}</td>
+<td>{{ m.stock_in }}</td>
+<td>{{ m.stock_out }}</td>
+<td>{% if m.adjusted > 0 %}+{% endif %}{{ m.adjusted }}</td>
+<td><b>{{ m.balance }}</b></td>
+</tr>
+{% endfor %}
+</table>
+</div>
+<div class="card">
+<h3>Movement by Date</h3>
+<table>
+<tr>
+<th>Date</th>
+<th>Stock In</th>
+<th>Stock Out</th>
+<th>Net Adjustments</th>
+</tr>
+{% for d in daily_list %}
+<tr>
+<td>{{ d.day }}</td>
+<td>{{ d.stock_in }}</td>
+<td>{{ d.stock_out }}</td>
+<td>{% if d.adjusted > 0 %}+{% endif %}{{ d.adjusted }}</td>
+</tr>
+{% endfor %}
+</table>
+{% if not daily_list %}<p>No movements match these filters.</p>{% endif %}
+</div>
+<div class="card">
+<h3>All Transactions</h3>
+<table>
+<tr>
+<th>Date/Time</th>
+<th>Supply</th>
+<th>Transaction</th>
+<th>Quantity</th>
+<th>Balance After</th>
+<th>Reference</th>
+</tr>
+{% for t in rows %}
+<tr>
+<td>{{ t.created_at }}</td>
+<td>{{ t.supply_name }}</td>
+<td>{{ t.transaction_type }}</td>
+<td>{% if t.transaction_type == 'Adjustment' and t.quantity > 0 %}+{% endif %}{{ t.quantity }}</td>
+<td>{{ t.balance_after }}</td>
+<td>{{ t.reference_type }} #{{ t.reference_id }}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+{% endblock %}

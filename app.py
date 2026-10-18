@@ -1004,6 +1004,135 @@ def request_report():
     department_summary = sorted(by_department.values(), key=lambda d: d['name'])
     employee_summary = sorted(by_employee.values(), key=lambda d: d['name'])
     return render_template('request_report.html', rows=rows, totals=totals, department_summary=department_summary, employee_summary=employee_summary, department_list=department_list, employee_list=employee_list, date_from=date_from, date_to=date_to, selected_department=department_filter, selected_employee=employee_filter, selected_status=status_filter)
- 
+
+def add_issuance_to_summary(summary, name, row):
+    # Counts distinct issuances and adds up the quantity for a department or employee
+    if name not in summary:
+        summary[name] = {'name': name, 'ids': set(), 'quantity': 0}
+    summary[name]['ids'].add(row['issuance_id'])
+    summary[name]['quantity'] += row['issued_qty']
+
+
+@app.route('/reports/issuance')
+def issuance_report():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    date_from = request.args.get('date_from', '')
+    date_to = request.args.get('date_to', '')
+    department_filter = request.args.get('department_id', '')
+    employee_filter = request.args.get('employee_id', '')
+    query = 'SELECT issuances.issuance_id, issuances.issuance_number, issuances.issuance_date, supply_requests.request_number, employees.first_name, employees.last_name, departments.department_name, supplies.supply_name, units.unit_name, issuance_items.issued_qty FROM issuance_items JOIN issuances ON issuance_items.issuance_id = issuances.issuance_id JOIN supply_requests ON issuances.request_id = supply_requests.request_id LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id LEFT JOIN departments ON supply_requests.department_id = departments.department_id JOIN supplies ON issuance_items.supply_id = supplies.supply_id LEFT JOIN units ON supplies.unit_id = units.unit_id'
+    conditions = []
+    params = []
+    if date_from:
+        conditions.append('issuances.issuance_date >= %s')
+        params.append(date_from)
+    if date_to:
+        conditions.append('issuances.issuance_date <= %s')
+        params.append(date_to)
+    if department_filter:
+        conditions.append('supply_requests.department_id = %s')
+        params.append(department_filter)
+    if employee_filter:
+        conditions.append('supply_requests.employee_id = %s')
+        params.append(employee_filter)
+    if conditions:
+        query += ' WHERE ' + ' AND '.join(conditions)
+    query += ' ORDER BY issuances.issuance_date DESC, issuances.issuance_id DESC'
+    cursor.execute(query, tuple(params))
+    rows = cursor.fetchall()
+    cursor.execute('SELECT * FROM departments ORDER BY department_name')
+    department_list = cursor.fetchall()
+    cursor.execute('SELECT * FROM employees ORDER BY first_name, last_name')
+    employee_list = cursor.fetchall()
+    conn.close()
+    issuance_ids = set()
+    total_quantity = 0
+    by_supply = {}
+    by_department = {}
+    by_employee = {}
+    for row in rows:
+        issuance_ids.add(row['issuance_id'])
+        total_quantity += row['issued_qty']
+        if row['supply_name'] not in by_supply:
+            by_supply[row['supply_name']] = {'name': row['supply_name'], 'unit': row['unit_name'], 'times': 0, 'quantity': 0}
+        by_supply[row['supply_name']]['times'] += 1
+        by_supply[row['supply_name']]['quantity'] += row['issued_qty']
+        add_issuance_to_summary(by_department, row['department_name'] or 'No department', row)
+        add_issuance_to_summary(by_employee, ((row['first_name'] or '') + ' ' + (row['last_name'] or '')).strip(), row)
+    top_supplies = sorted(by_supply.values(), key=lambda s: (s['times'], s['quantity']), reverse=True)[:10]
+    department_summary = sorted(by_department.values(), key=lambda d: d['quantity'], reverse=True)
+    employee_summary = sorted(by_employee.values(), key=lambda d: d['quantity'], reverse=True)
+    return render_template('issuance_report.html', rows=rows, issuance_count=len(issuance_ids), total_quantity=total_quantity, supply_count=len(by_supply), top_supplies=top_supplies, department_summary=department_summary, employee_summary=employee_summary, department_list=department_list, employee_list=employee_list, date_from=date_from, date_to=date_to, selected_department=department_filter, selected_employee=employee_filter)
+
+@app.route('/reports/movement')
+def movement_report():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    date_from = request.args.get('date_from', '')
+    date_to = request.args.get('date_to', '')
+    supply_filter = request.args.get('supply_id', '')
+    type_filter = request.args.get('transaction_type', '')
+    query = 'SELECT inventory_transactions.*, supplies.supply_code, supplies.supply_name FROM inventory_transactions JOIN supplies ON inventory_transactions.supply_id = supplies.supply_id'
+    conditions = []
+    params = []
+    if date_from:
+        conditions.append('DATE(inventory_transactions.created_at) >= %s')
+        params.append(date_from)
+    if date_to:
+        conditions.append('DATE(inventory_transactions.created_at) <= %s')
+        params.append(date_to)
+    if supply_filter:
+        conditions.append('inventory_transactions.supply_id = %s')
+        params.append(supply_filter)
+    if type_filter in ('Stock In', 'Issued', 'Adjustment'):
+        conditions.append('inventory_transactions.transaction_type = %s')
+        params.append(type_filter)
+    if conditions:
+        query += ' WHERE ' + ' AND '.join(conditions)
+    query += ' ORDER BY inventory_transactions.transaction_id DESC'
+    cursor.execute(query, tuple(params))
+    rows = cursor.fetchall()
+    cursor.execute('SELECT supplies.supply_id, supplies.supply_code, supplies.supply_name, COALESCE(inventory.current_stock, 0) AS balance FROM supplies LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id ORDER BY supplies.supply_name')
+    all_supplies = cursor.fetchall()
+    conn.close()
+    movement = {}
+    for s in all_supplies:
+        if not supply_filter or str(s['supply_id']) == supply_filter:
+            movement[s['supply_id']] = {'code': s['supply_code'], 'name': s['supply_name'], 'stock_in': 0, 'stock_out': 0, 'adjusted': 0, 'balance': s['balance']}
+    totals = {'stock_in': 0, 'stock_out': 0, 'adjusted': 0}
+    daily = {}
+    for row in rows:
+        qty = row['quantity']
+        if row['transaction_type'] == 'Stock In':
+            field = 'stock_in'
+        elif row['transaction_type'] == 'Issued':
+            field = 'stock_out'
+            qty = abs(qty)
+        else:
+            field = 'adjusted'
+        day = str(row['created_at'])[:10]
+        if day not in daily:
+            daily[day] = {'day': day, 'stock_in': 0, 'stock_out': 0, 'adjusted': 0}
+        daily[day][field] += qty
+        totals[field] += qty
+        if row['supply_id'] in movement:
+            movement[row['supply_id']][field] += qty
+    movement_list = list(movement.values())
+    daily_list = sorted(daily.values(), key=lambda d: d['day'], reverse=True)
+    return render_template('movement_report.html', rows=rows, totals=totals, movement_list=movement_list, daily_list=daily_list, supply_options=all_supplies, date_from=date_from, date_to=date_to, selected_supply=supply_filter, selected_type=type_filter)
+
+@app.route('/reports/reorder')
+def reorder_report():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute('SELECT supplies.supply_code, supplies.supply_name, supplies.reorder_level, supplies.maximum_stock, units.unit_name, COALESCE(inventory.current_stock, 0) AS stock, (SELECT GROUP_CONCAT(suppliers.supplier_name ORDER BY suppliers.supplier_name SEPARATOR ", ") FROM suppliers JOIN supplier_supplies ON suppliers.supplier_id = supplier_supplies.supplier_id WHERE supplier_supplies.supply_id = supplies.supply_id AND suppliers.status = "Active") AS supplier_names FROM supplies LEFT JOIN units ON supplies.unit_id = units.unit_id LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id WHERE supplies.status = "Active" AND COALESCE(inventory.current_stock, 0) <= supplies.reorder_level ORDER BY COALESCE(inventory.current_stock, 0), supplies.supply_name')
+    rows = cursor.fetchall()
+    conn.close()
+    for row in rows:
+        row['action'] = 'Urgent' if row['stock'] == 0 else 'Reorder'
+        row['suggested'] = row['maximum_stock'] - row['stock'] if row['maximum_stock'] > row['stock'] else None
+    urgent_count = len([row for row in rows if row['action'] == 'Urgent'])
+    return render_template('reorder_report.html', rows=rows, urgent_count=urgent_count, reorder_count=len(rows) - urgent_count) 
 if __name__ == '__main__':  
     app.run(host="0.0.0.0", port=5500) 

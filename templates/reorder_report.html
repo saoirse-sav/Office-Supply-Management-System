@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Low-Stock and Reorder Report{% endblock %}
+{% block content %}
+<h1>Low-Stock and Reorder Report</h1>
+<div class="no-print">
+<button class="btn" onclick="window.print()">Print</button>
+<a href="/reports">Back to Reports</a>
+</div>
+<div class="card">
+<h3>Summary</h3>
+<table>
+<tr>
+<th>Supplies to Act On</th>
+<th>Urgent (no stock)</th>
+<th>Reorder (low stock)</th>
+</tr>
+<tr>
+<td>{{ rows|length }}</td>
+<td>{{ urgent_count }}</td>
+<td>{{ reorder_count }}</td>
+</tr>
+</table>
+</div>
+<div class="card">
+<h3>Supplies to Reorder</h3>
+<p>Active supplies at or below their reorder level. Suggested order quantity brings the stock up to the supply's maximum stock level.</p>
+<table>
+<tr>
+<th>Supply</th>
+<th>Current Stock</th>
+<th>Reorder Level</th>
+<th>Suggested Order Qty</th>
+<th>Suppliers</th>
+<th>Recommended Action</th>
+</tr>
+{% for r in rows %}
+<tr>
+<td>{{ r.supply_name }} ({{ r.unit_name }})</td>
+<td>{{ r.stock }}</td>
+<td>{{ r.reorder_level }}</td>
+<td>{{ r.suggested if r.suggested is not none else 'n/a' }}</td>
+<td>{{ r.supplier_names or 'None assigned' }}</td>
+<td><span class="badge {% if r.action == 'Urgent' %}badge-out{% else %}badge-low{% endif %}">{{ r.action }}</span></td>
+</tr>
+{% endfor %}
+</table>
+{% if not rows %}<p>Nothing needs reordering right now.</p>{% endif %}
+</div>
+{% endblock %}

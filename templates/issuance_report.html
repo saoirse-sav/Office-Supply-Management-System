@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Issuance Report{% endblock %}
+{% block content %}
+<h1>Issuance Report</h1>
+<div class="no-print">
+<button class="btn" onclick="window.print()">Print</button>
+<a href="/reports">Back to Reports</a>
+<br><br>
+<form method="GET" style="max-width:none;">
+<label>From:</label>
+<input type="date" name="date_from" value="{{ date_from }}" style="width:auto;">
+<label>To:</label>
+<input type="date" name="date_to" value="{{ date_to }}" style="width:auto;">
+<label>Department:</label>
+<select name="department_id" style="width:auto;">
+<option value="">All departments</option>
+{% for d in department_list %}
+<option value="{{ d.department_id }}" {% if selected_department == d.department_id|string %}selected{% endif %}>{{ d.department_name }}</option>
+{% endfor %}
+</select>
+<label>Employee:</label>
+<select name="employee_id" style="width:auto;">
+<option value="">All employees</option>
+{% for e in employee_list %}
+<option value="{{ e.employee_id }}" {% if selected_employee == e.employee_id|string %}selected{% endif %}>{{ e.first_name }} {{ e.last_name }}</option>
+{% endfor %}
+</select>
+<br><br>
+<button type="submit" class="btn">Filter</button>
+<a href="/reports/issuance">Clear</a>
+</form>
+</div>
+<div class="card">
+<h3>Summary</h3>
+<table>
+<tr>
+<th>Issuances</th>
+<th>Total Units Issued</th>
+<th>Different Supplies Issued</th>
+</tr>
+<tr>
+<td>{{ issuance_count }}</td>
+<td>{{ total_quantity }}</td>
+<td>{{ supply_count }}</td>
+</tr>
+</table>
+</div>
+<div class="card">
+<h3>Most Frequently Issued Supplies (top 10)</h3>
+<table>
+<tr>
+<th>Supply</th>
+<th>Unit</th>
+<th>Times Issued</th>
+<th>Total Quantity</th>
+</tr>
+{% for s in top_supplies %}
+<tr>
+<td>{{ s.name }}</td>
+<td>{{ s.unit }}</td>
+<td>{{ s.times }}</td>
+<td>{{ s.quantity }}</td>
+</tr>
+{% endfor %}
+</table>
+{% if not top_supplies %}<p>Nothing has been issued for these filters.</p>{% endif %}
+</div>
+<div class="card">
+<h3>Issuance by Department</h3>
+<table>
+<tr>
+<th>Department</th>
+<th>Issuances</th>
+<th>Total Quantity</th>
+</tr>
+{% for d in department_summary %}
+<tr>
+<td>{{ d.name }}</td>
+<td>{{ d.ids|length }}</td>
+<td>{{ d.quantity }}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+<div class="card">
+<h3>Issuance by Employee</h3>
+<table>
+<tr>
+<th>Employee</th>
+<th>Issuances</th>
+<th>Total Quantity</th>
+</tr>
+{% for p in employee_summary %}
+<tr>
+<td>{{ p.name }}</td>
+<td>{{ p.ids|length }}</td>
+<td>{{ p.quantity }}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+<div class="card">
+<h3>Supplies Issued, by Date</h3>
+<table>
+<tr>
+<th>Date</th>
+<th>Issuance No.</th>
+<th>Request No.</th>
+<th>Requestor</th>
+<th>Department</th>
+<th>Supply</th>
+<th>Quantity</th>
+</tr>
+{% for r in rows %}
+<tr>
+<td>{{ r.issuance_date }}</td>
+<td><a href="/issuance/document/{{ r.issuance_id }}">{{ r.issuance_number }}</a></td>
+<td>{{ r.request_number }}</td>
+<td>{{ r.first_name }} {{ r.last_name }}</td>
+<td>{{ r.department_name }}</td>
+<td>{{ r.supply_name }}</td>
+<td>{{ r.issued_qty }} {{ r.unit_name }}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+{% endblock %}

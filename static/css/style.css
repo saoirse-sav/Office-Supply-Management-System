@@ -222,3 +222,54 @@ form {
         padding: 0;
     }
 }
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 1rem;
+}
+
+.stat-card {
+    background-color: white;
+    border-radius: 10px;
+    padding: 1rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.stat-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6B7A6D;
+    text-transform: uppercase;
+}
+
+.stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #2D4739;
+    margin-top: 4px;
+}
+
+.stat-low .stat-value {
+    color: #8A6D1D;
+}
+
+.stat-out .stat-value {
+    color: #A0481F;
+}
+
+.chart-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.chart-grid .card {
+    margin-top: 0;
+}
+
+.chart-box {
+    position: relative;
+    height: 260px;
+}

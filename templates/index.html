@@ -1,6 +1,50 @@
-{% extends "base.html" %} 
-{% block title %}Dashboard{% endblock %} 
-{% block content %} 
-<h1>Office Supply Management System</h1> 
-<p>Welcome back! Use the sidebar to manage categories, units, and supplies.</p> 
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Office Supply Dashboard</h1>
+<div class="stat-grid">
+<div class="stat-card"><div class="stat-label">Total Supplies</div><div class="stat-value">{{ total_supplies }}</div></div>
+<div class="stat-card"><div class="stat-label">Active Suppliers</div><div class="stat-value">{{ active_suppliers }}</div></div>
+<div class="stat-card"><div class="stat-label">Pending Requests</div><div class="stat-value">{{ pending_requests }}</div></div>
+<div class="stat-card"><div class="stat-label">For Approval</div><div class="stat-value">{{ for_approval }}</div></div>
+<div class="stat-card"><div class="stat-label">Issued This Month</div><div class="stat-value">{{ issued_this_month }}</div></div>
+<div class="stat-card stat-low"><div class="stat-label">Low Stock</div><div class="stat-value">{{ low_stock }}</div></div>
+<div class="stat-card stat-out"><div class="stat-label">Out of Stock</div><div class="stat-value">{{ out_of_stock }}</div></div>
+</div>
+<div class="chart-grid">
+<div class="card"><h3>Supplies by Category</h3><div class="chart-box"><canvas id="categoryChart"></canvas></div></div>
+<div class="card"><h3>Requests by Department</h3><div class="chart-box"><canvas id="departmentChart"></canvas></div></div>
+<div class="card"><h3>Monthly Issuance (units, last 6 months)</h3><div class="chart-box"><canvas id="monthlyChart"></canvas></div></div>
+<div class="card"><h3>Inventory Movement (units, last 6 months)</h3><div class="chart-box"><canvas id="movementChart"></canvas></div></div>
+<div class="card"><h3>Most Requested Supplies</h3><div class="chart-box"><canvas id="requestedChart"></canvas></div></div>
+<div class="card"><h3>Most Issued Supplies</h3><div class="chart-box"><canvas id="issuedChart"></canvas></div></div>
+<div class="card"><h3>Low-Stock Supplies</h3><div class="chart-box"><canvas id="lowChart"></canvas></div></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+var green = '#2D4739';
+var lightGreen = '#7FA38C';
+var orange = '#C96A3C';
+
+function drawBar(canvasId, labels, datasets, horizontal) {
+    new Chart(document.getElementById(canvasId), {
+        type: 'bar',
+        data: { labels: labels, datasets: datasets },
+        options: {
+            indexAxis: horizontal ? 'y' : 'x',
+            maintainAspectRatio: false,
+            plugins: { legend: { display: datasets.length > 1 } },
+            scales: { x: { beginAtZero: true }, y: { beginAtZero: true } }
+        }
+    });
+}
+
+drawBar('categoryChart', {{ category_labels|tojson }}, [{ label: 'Supplies', data: {{ category_values|tojson }}, backgroundColor: green }], false);
+drawBar('departmentChart', {{ department_labels|tojson }}, [{ label: 'Requests', data: {{ department_values|tojson }}, backgroundColor: green }], false);
+drawBar('monthlyChart', {{ monthly_labels|tojson }}, [{ label: 'Units issued', data: {{ monthly_values|tojson }}, backgroundColor: green }], false);
+drawBar('movementChart', {{ movement_labels|tojson }}, [{ label: 'Stock in', data: {{ movement_in|tojson }}, backgroundColor: lightGreen }, { label: 'Stock out', data: {{ movement_out|tojson }}, backgroundColor: orange }], false);
+drawBar('requestedChart', {{ requested_labels|tojson }}, [{ label: 'Quantity requested', data: {{ requested_values|tojson }}, backgroundColor: green }], true);
+drawBar('issuedChart', {{ issued_labels|tojson }}, [{ label: 'Quantity issued', data: {{ issued_values|tojson }}, backgroundColor: green }], true);
+drawBar('lowChart', {{ low_labels|tojson }}, [{ label: 'Current stock', data: {{ low_stock_values|tojson }}, backgroundColor: orange }, { label: 'Reorder level', data: {{ low_reorder_values|tojson }}, backgroundColor: lightGreen }], false);
+</script>
 {% endblock %}

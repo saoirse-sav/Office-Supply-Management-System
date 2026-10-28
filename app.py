@@ -50,13 +50,61 @@ def home():
     return render_template('index.html', total_supplies=total_supplies, active_suppliers=active_suppliers, pending_requests=pending_requests, for_approval=for_approval, issued_this_month=issued_this_month, low_stock=low_stock, out_of_stock=out_of_stock, category_labels=category_labels, category_values=category_values, department_labels=department_labels, department_values=department_values, monthly_labels=monthly_labels, monthly_values=monthly_values, requested_labels=requested_labels, requested_values=requested_values, issued_labels=issued_labels, issued_values=issued_values, movement_labels=movement_labels, movement_in=movement_in, movement_out=movement_out, low_labels=low_labels, low_stock_values=low_stock_values, low_reorder_values=low_reorder_values)
 
 
+ROLE_AREAS = {
+    'Administrator': ['dashboard', 'masters', 'receiving', 'inventory', 'requests', 'approvals', 'issuance', 'reports', 'admin'],
+    'Supply Officer': ['dashboard', 'masters', 'receiving', 'inventory', 'requests', 'approvals', 'issuance', 'reports'],
+    'Department Head': ['dashboard', 'requests', 'approvals'],
+    'Inventory Clerk': ['dashboard', 'receiving', 'inventory'],
+    'Requestor': ['requests'],
+    'Management': ['dashboard', 'reports'],
+}
+
+
+def get_area(path):
+    # Works out which part of the system a web address belongs to
+    if path == '/':
+        return 'dashboard'
+    if path.startswith('/requests/review') or path.startswith('/requests/decide'):
+        return 'approvals'
+    if path.startswith('/requests'):
+        return 'requests'
+    if path.startswith('/approval-levels') or path.startswith('/users'):
+        return 'admin'
+    if path.startswith('/receipts'):
+        return 'receiving'
+    if path.startswith('/inventory'):
+        return 'inventory'
+    if path.startswith('/issuance'):
+        return 'issuance'
+    if path.startswith('/reports'):
+        return 'reports'
+    if path.startswith('/account') or path == '/logout':
+        return 'account'
+    for prefix in ('/categories', '/units', '/supplies', '/suppliers', '/departments', '/employees'):
+        if path.startswith(prefix):
+            return 'masters'
+    return None
+
+
+@app.context_processor
+def inject_permissions():
+    # Lets templates ask can('reports') to show or hide menu links
+    def can(area):
+        return area in ROLE_AREAS.get(session.get('role'), [])
+    return {'can': can}
+
+
 @app.before_request
 def require_login():
-    # Every page except the login page and static files needs a logged-in user
     if request.endpoint in ('login', 'static'):
         return None
     if 'user_id' not in session:
         return redirect('/login')
+    area = get_area(request.path)
+    if area is None or area == 'account':
+        return None
+    if area not in ROLE_AREAS.get(session['role'], []):
+        return render_template('forbidden.html'), 403
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -78,7 +126,7 @@ def login():
             session['user_id'] = user['user_id']
             session['username'] = user['username']
             session['role'] = user['role_name']
-            return redirect('/')
+            return redirect('/' if 'dashboard' in ROLE_AREAS.get(user['role_name'], []) else '/requests')
         else:
             error = 'Invalid username or password.'
             if user:
@@ -122,6 +170,111 @@ def change_password():
             message = 'Your password has been changed.'
         conn.close()
     return render_template('change_password.html', error=error, message=message)
+
+@app.route('/users')
+def users_list():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute('SELECT users.user_id, users.username, users.status, (users.locked_until IS NOT NULL AND users.locked_until > NOW()) AS is_locked, roles.role_name, employees.first_name, employees.last_name FROM users JOIN roles ON users.role_id = roles.role_id LEFT JOIN employees ON users.employee_id = employees.employee_id ORDER BY users.username')
+    all_users = cursor.fetchall()
+    conn.close()
+    return render_template('users.html', users=all_users)
+
+
+@app.route('/users/add', methods=['GET', 'POST'])
+def add_user():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    error = None
+    if request.method == 'POST':
+        username = request.form['username'].strip()
+        password = request.form['password']
+        role_id = request.form['role_id']
+        employee_id = request.form['employee_id'] or None
+        cursor.execute('SELECT user_id FROM users WHERE username=%s', (username,))
+        taken = cursor.fetchone()
+        cursor.execute('SELECT role_name FROM roles WHERE role_id=%s', (role_id,))
+        role_row = cursor.fetchone()
+        if taken:
+            error = 'That username is already taken.'
+        elif len(password) < 8:
+            error = 'The password must be at least 8 characters long.'
+        elif role_row['role_name'] == 'Requestor' and not employee_id:
+            error = 'A Requestor must be linked to an employee.'
+        else:
+            cursor.execute('INSERT INTO users (username, password_hash, role_id, employee_id) VALUES (%s, %s, %s, %s)', (username, generate_password_hash(password), role_id, employee_id))
+            conn.commit()
+            conn.close()
+            return redirect('/users')
+    cursor.execute('SELECT * FROM roles ORDER BY role_name')
+    role_list = cursor.fetchall()
+    cursor.execute('SELECT * FROM employees WHERE status="Active" ORDER BY first_name, last_name')
+    employee_list = cursor.fetchall()
+    conn.close()
+    return render_template('user_form.html', user=None, roles=role_list, employees=employee_list, error=error)
+
+
+@app.route('/users/edit/<int:user_id>', methods=['GET', 'POST'])
+def edit_user(user_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    error = None
+    cursor.execute('SELECT * FROM users WHERE user_id=%s', (user_id,))
+    user = cursor.fetchone()
+    if request.method == 'POST':
+        role_id = request.form['role_id']
+        employee_id = request.form['employee_id'] or None
+        if user_id == session['user_id']:
+            role_id = user['role_id']
+        cursor.execute('SELECT role_name FROM roles WHERE role_id=%s', (role_id,))
+        role_row = cursor.fetchone()
+        if role_row['role_name'] == 'Requestor' and not employee_id:
+            error = 'A Requestor must be linked to an employee.'
+        else:
+            cursor.execute('UPDATE users SET role_id=%s, employee_id=%s WHERE user_id=%s', (role_id, employee_id, user_id))
+            conn.commit()
+            conn.close()
+            return redirect('/users')
+    cursor.execute('SELECT * FROM roles ORDER BY role_name')
+    role_list = cursor.fetchall()
+    cursor.execute('SELECT * FROM employees WHERE status="Active" ORDER BY first_name, last_name')
+    employee_list = cursor.fetchall()
+    conn.close()
+    return render_template('user_form.html', user=user, roles=role_list, employees=employee_list, error=error)
+
+
+@app.route('/users/reset/<int:user_id>', methods=['GET', 'POST'])
+def reset_user_password(user_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    error = None
+    cursor.execute('SELECT username FROM users WHERE user_id=%s', (user_id,))
+    user = cursor.fetchone()
+    if request.method == 'POST':
+        new_password = request.form['new_password']
+        if len(new_password) < 8:
+            error = 'The password must be at least 8 characters long.'
+        else:
+            cursor.execute('UPDATE users SET password_hash=%s, failed_attempts=0, locked_until=NULL WHERE user_id=%s', (generate_password_hash(new_password), user_id))
+            conn.commit()
+            conn.close()
+            return redirect('/users')
+    conn.close()
+    return render_template('reset_user_password.html', user=user, error=error)
+
+
+@app.route('/users/toggle/<int:user_id>')
+def toggle_user(user_id):
+    if user_id != session['user_id']:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute('SELECT status FROM users WHERE user_id=%s', (user_id,))
+        current = cursor.fetchone()
+        new_status = 'Inactive' if current['status'] == 'Active' else 'Active'
+        cursor.execute('UPDATE users SET status=%s WHERE user_id=%s', (new_status, user_id))
+        conn.commit()
+        conn.close()
+    return redirect('/users')
 
 
 if __name__ == '__main__':  

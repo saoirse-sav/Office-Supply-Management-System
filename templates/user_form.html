@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{% if user %}Edit User{% else %}Add User{% endif %}{% endblock %}
+{% block content %}
+<h1>{% if user %}Edit User: {{ user.username }}{% else %}Add New User{% endif %}</h1>
+{% if error %}<p class="error-message">{{ error }}</p>{% endif %}
+<form method="POST">
+{% if not user %}
+<label>Username:</label>
+<input type="text" name="username" required>
+<label>Password (at least 8 characters):</label>
+<input type="password" name="password" required>
+{% endif %}
+<label>Role:</label>
+<select name="role_id" required>
+{% for r in roles %}
+<option value="{{ r.role_id }}" {% if user and user.role_id == r.role_id %}selected{% endif %}>{{ r.role_name }}</option>
+{% endfor %}
+</select>
+<label>Linked Employee (required for Requestors):</label>
+<select name="employee_id">
+<option value="">None</option>
+{% for e in employees %}
+<option value="{{ e.employee_id }}" {% if user and user.employee_id == e.employee_id %}selected{% endif %}>{{ e.first_name }} {{ e.last_name }}</option>
+{% endfor %}
+</select>
+<br><br>
+<button type="submit" class="btn">Save User</button>
+</form>
+<br>
+<a href="/users">Back to Users</a>
+{% endblock %}

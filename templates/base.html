@@ -1,40 +1,51 @@
-<!DOCTYPE html> 
-<html> 
-    <head> 
-        <title>{% block title %}OSMS{% endblock %}</title> 
-        <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"> 
-    </head> 
-    <body> 
-        <div class="sidebar"> 
-            <div class="sidebar-logo"><i class="ti ti-briefcase"></i>OSMS</div>
-            <a href="/"><i class="ti ti-home"></i>Dashboard</a> 
-            <a href="/categories"><i class="ti ti-category"></i>Categories</a> 
-            <a href="/units"><i class="ti ti-ruler-2"></i>Units</a> 
-            <a href="/supplies"><i class="ti ti-box"></i>Supplies</a>
-            <a href="/suppliers"><i class="ti ti-truck-delivery"></i>Suppliers</a>
-            <a href="/receipts"><i class="ti ti-receipt"></i>Receipts</a>
-            <a href="/inventory/transactions"><i class="ti ti-history"></i>Inventory History</a>
-            <a href="/inventory/adjustments"><i class="ti ti-adjustments"></i>Stock Adjustments</a>
-            <a href="/inventory/physical-count"><i class="ti ti-clipboard-check"></i>Physical Count</a>
-            <a href="/inventory"><i class="ti ti-packages"></i>Inventory</a>
-            <a href="/departments"><i class="ti ti-building"></i>Departments</a>
-            <a href="/employees"><i class="ti ti-users"></i>Employees</a>
-            <a href="/requests"><i class="ti ti-clipboard-list"></i>Requests</a>
-            <a href="/issuance"><i class="ti ti-send"></i>Issuance</a>
-            <a href="/issuances"><i class="ti ti-files"></i>Issuance Records</a>
-            <a href="/approval-levels"><i class="ti ti-list-check"></i>Approval Levels</a>
-            <a href="/reports"><i class="ti ti-report"></i>Reports</a>
-            <div class="sidebar-user">
-<p>{{ session.username }} ({{ session.role }})</p>
-<a href="/account/password"><i class="ti ti-key"></i>Change Password</a>
-<a href="/logout"><i class="ti ti-logout"></i>Logout</a>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% block title %}OSMS{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+</head>
+<body>
+    <div class="sidebar">
+    <div class="sidebar-logo"><i class="ti ti-briefcase"></i>OSMS</div>
+    {% if can('dashboard') %}<a href="/"><i class="ti ti-home"></i>Dashboard</a>{% endif %}
+    {% if can('masters') %}
+    <a href="/categories"><i class="ti ti-category"></i>Categories</a>
+    <a href="/units"><i class="ti ti-ruler-2"></i>Units</a>
+    <a href="/supplies"><i class="ti ti-box"></i>Supplies</a>
+    <a href="/suppliers"><i class="ti ti-truck-delivery"></i>Suppliers</a>
+    {% endif %}
+    {% if can('receiving') %}<a href="/receipts"><i class="ti ti-receipt"></i>Receipts</a>{% endif %}
+    {% if can('inventory') %}
+    <a href="/inventory/transactions"><i class="ti ti-history"></i>Inventory History</a>
+    <a href="/inventory/adjustments"><i class="ti ti-adjustments"></i>Stock Adjustments</a>
+    <a href="/inventory/physical-count"><i class="ti ti-clipboard-check"></i>Physical Count</a>
+    <a href="/inventory"><i class="ti ti-packages"></i>Inventory</a>
+    {% endif %}
+    {% if can('masters') %}
+    <a href="/departments"><i class="ti ti-building"></i>Departments</a>
+    <a href="/employees"><i class="ti ti-users"></i>Employees</a>
+    {% endif %}
+    {% if can('requests') %}<a href="/requests"><i class="ti ti-clipboard-list"></i>Requests</a>{% endif %}
+    {% if can('issuance') %}
+    <a href="/issuance"><i class="ti ti-send"></i>Issuance</a>
+    <a href="/issuances"><i class="ti ti-files"></i>Issuance Records</a>
+    {% endif %}
+    {% if can('admin') %}
+    <a href="/approval-levels"><i class="ti ti-list-check"></i>Approval Levels</a>
+    <a href="/users"><i class="ti ti-user-cog"></i>Users</a>
+    {% endif %}
+    {% if can('reports') %}<a href="/reports"><i class="ti ti-report"></i>Reports</a>{% endif %}
+    <div class="sidebar-user">
+    <p>{{ session.username }} ({{ session.role }})</p>
+    <a href="/account/password"><i class="ti ti-key"></i>Change Password</a>
+    <a href="/logout"><i class="ti ti-logout"></i>Logout</a>
 </div>
-
-             
-        </div>
-        <div class="main-content"> {% block content %}{% endblock %} </div> 
-    </body> 
-        </html>
+</div>
+    <div class="main-content">
+    {% block content %}{% endblock %}
+</div>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Access Denied{% endblock %}
+{% block content %}
+<h1>Access Denied</h1>
+<p class="error-message">Your role ({{ session.role }}) does not have permission to open this page.</p>
+<a href="javascript:history.back()">Go back</a>
+{% endblock %}

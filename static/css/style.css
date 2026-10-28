@@ -273,3 +273,32 @@ form {
     position: relative;
     height: 260px;
 }
+.login-box {
+    width: 360px;
+    margin: auto;
+    background-color: white;
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.success-message {
+    background-color: #E3EEE3;
+    color: #2D4739;
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+.sidebar-user {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255,255,255,0.15);
+}
+
+.sidebar-user p {
+    font-size: 13px;
+    color: #C9D6C9;
+    padding: 0 12px 8px;
+}

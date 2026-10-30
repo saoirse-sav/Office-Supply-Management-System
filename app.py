@@ -497,40 +497,76 @@ def add_employee():
     conn.close()
     return render_template('add_employee.html', departments=department_list)
 
-@app.route('/requests') 
-def requests_list(): 
-    conn = get_connection() 
-    cursor = conn.cursor(dictionary=True) 
-    cursor.execute('SELECT supply_requests.*, employees.first_name, employees.last_name, departments.department_name, (SELECT COUNT(*) FROM request_items WHERE request_items.request_id = supply_requests.request_id) AS item_count FROM supply_requests LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id LEFT JOIN departments ON supply_requests.department_id = departments.department_id ORDER BY supply_requests.request_id DESC') 
-    all_requests = cursor.fetchall() 
-    conn.close() 
+@app.route('/requests')
+def requests_list():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    if session['role'] == 'Requestor':
+        cursor.execute('''
+            SELECT supply_requests.*, employees.first_name, employees.last_name,
+            departments.department_name,
+            (SELECT COUNT(*) FROM request_items
+             WHERE request_items.request_id = supply_requests.request_id) AS item_count
+            FROM supply_requests
+            LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id
+            LEFT JOIN departments ON supply_requests.department_id = departments.department_id
+            WHERE supply_requests.employee_id = %s
+            ORDER BY supply_requests.request_id DESC
+        ''', (session.get('employee_id'),))
+    else:
+        cursor.execute('''
+            SELECT supply_requests.*, employees.first_name, employees.last_name,
+            departments.department_name,
+            (SELECT COUNT(*) FROM request_items
+             WHERE request_items.request_id = supply_requests.request_id) AS item_count
+            FROM supply_requests
+            LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id
+            LEFT JOIN departments ON supply_requests.department_id = departments.department_id
+            ORDER BY supply_requests.request_id DESC
+        ''')
+
+    all_requests = cursor.fetchall()
+    conn.close()
+
     return render_template('requests.html', requests=all_requests)
 
 
-@app.route('/requests/add', methods=['GET', 'POST']) 
-def add_request(): 
-    conn = get_connection() 
-    cursor = conn.cursor(dictionary=True) 
-    if request.method == 'POST': 
-        request_number = request.form['request_number'] 
-        employee_id = request.form['employee_id'] 
-        request_date = request.form['request_date'] 
-        purpose = request.form['purpose'] 
-        priority = request.form['priority'] 
-        required_date = request.form['required_date'] 
-        remarks = request.form['remarks'] 
-        cursor.execute('SELECT department_id FROM employees WHERE employee_id=%s', (employee_id,)) 
-        employee_row = cursor.fetchone() 
-        department_id = employee_row['department_id'] 
-        cursor.execute('INSERT INTO supply_requests (request_number, employee_id, department_id, request_date, purpose, priority, required_date, remarks) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)', (request_number, employee_id, department_id, request_date, purpose, priority, required_date, remarks)) 
-        conn.commit() 
-        new_request_id = cursor.lastrowid 
-        conn.close() 
-        return redirect('/requests/items/' + str(new_request_id)) 
-    cursor.execute('SELECT * FROM employees WHERE status="Active"') 
-    employee_list = cursor.fetchall() 
-    conn.close() 
+
+@app.route('/requests/add', methods=['GET', 'POST'])
+def add_request():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    if request.method == 'POST':
+        if session.get('role') == 'Requestor':
+            employee_id = session.get('employee_id')
+            if not employee_id:
+                conn.close()
+                return 'Your account is not linked to an employee record.', 403
+        else:
+            employee_id = request.form['employee_id']
+        request_number = request.form['request_number']
+        request_date = request.form['request_date']
+        purpose = request.form.get('purpose', '')
+        priority = request.form['priority']
+        required_date = request.form.get('required_date') or None
+        remarks = request.form.get('remarks', '')
+        cursor.execute('SELECT department_id FROM employees WHERE employee_id=%s AND status="Active"', (employee_id,))
+        employee_row = cursor.fetchone()
+        if not employee_row:
+            conn.close()
+            return 'Employee record not found or inactive.', 400
+        department_id = employee_row['department_id']
+        cursor.execute('INSERT INTO supply_requests (request_number, employee_id, department_id, request_date, purpose, priority, required_date, remarks) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)', (request_number, employee_id, department_id, request_date, purpose, priority, required_date, remarks))
+        conn.commit()
+        new_request_id = cursor.lastrowid
+        conn.close()
+        return redirect('/requests/items/' + str(new_request_id))
+    cursor.execute('SELECT * FROM employees WHERE status="Active"')
+    employee_list = cursor.fetchall()
+    conn.close()
     return render_template('add_request.html', employees=employee_list)
+
 
 @app.route('/receipts/add', methods=['GET', 'POST']) 
 def add_receipt(): 
@@ -1253,6 +1289,7 @@ def login():
             session['user_id'] = user['user_id']
             session['username'] = user['username']
             session['role'] = user['role_name']
+            session['user_id'] = user['user_id']
             return redirect('/' if 'dashboard' in ROLE_AREAS.get(user['role_name'], []) else '/requests')
         else:
             error = 'Invalid username or password.'

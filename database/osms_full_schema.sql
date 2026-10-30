@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS employees (
     employee_id INT AUTO_INCREMENT PRIMARY KEY,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
-    position VARCHAR(100),x
+    position VARCHAR(100),
     department_id INT,
     email VARCHAR(150),
     contact_number VARCHAR(30),

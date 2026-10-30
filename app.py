@@ -497,39 +497,23 @@ def add_employee():
     conn.close()
     return render_template('add_employee.html', departments=department_list)
 
+
 @app.route('/requests')
 def requests_list():
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
-
-    if session['role'] == 'Requestor':
-        cursor.execute('''
-            SELECT supply_requests.*, employees.first_name, employees.last_name,
-            departments.department_name,
-            (SELECT COUNT(*) FROM request_items
-             WHERE request_items.request_id = supply_requests.request_id) AS item_count
-            FROM supply_requests
-            LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id
-            LEFT JOIN departments ON supply_requests.department_id = departments.department_id
-            WHERE supply_requests.employee_id = %s
-            ORDER BY supply_requests.request_id DESC
-        ''', (session.get('employee_id'),))
+    if session.get('role') == 'Requestor':
+        employee_id = session.get('employee_id')
+        if not employee_id:
+            conn.close()
+            return 'Your account is not linked to an employee record.', 403
+        cursor.execute('SELECT supply_requests.*, employees.first_name, employees.last_name, departments.department_name, (SELECT COUNT(*) FROM request_items WHERE request_items.request_id = supply_requests.request_id) AS item_count FROM supply_requests LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id LEFT JOIN departments ON supply_requests.department_id = departments.department_id WHERE supply_requests.employee_id=%s ORDER BY supply_requests.request_id DESC', (employee_id,))
     else:
-        cursor.execute('''
-            SELECT supply_requests.*, employees.first_name, employees.last_name,
-            departments.department_name,
-            (SELECT COUNT(*) FROM request_items
-             WHERE request_items.request_id = supply_requests.request_id) AS item_count
-            FROM supply_requests
-            LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id
-            LEFT JOIN departments ON supply_requests.department_id = departments.department_id
-            ORDER BY supply_requests.request_id DESC
-        ''')
-
+        cursor.execute('SELECT supply_requests.*, employees.first_name, employees.last_name, departments.department_name, (SELECT COUNT(*) FROM request_items WHERE request_items.request_id = supply_requests.request_id) AS item_count FROM supply_requests LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id LEFT JOIN departments ON supply_requests.department_id = departments.department_id ORDER BY supply_requests.request_id DESC')
     all_requests = cursor.fetchall()
     conn.close()
-
     return render_template('requests.html', requests=all_requests)
+
 
 
 
@@ -1290,6 +1274,7 @@ def login():
             session['username'] = user['username']
             session['role'] = user['role_name']
             session['user_id'] = user['user_id']
+            session['employee_id'] = user['employee_id']
             return redirect('/' if 'dashboard' in ROLE_AREAS.get(user['role_name'], []) else '/requests')
         else:
             error = 'Invalid username or password.'

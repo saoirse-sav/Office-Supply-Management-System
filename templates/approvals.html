@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Approvals{% endblock %}
+{% block content %}
+<h1>Approval Queue</h1>
+<div class="card">
+    <table>
+        <tr>
+            <th>Request Number</th>
+            <th>Requestor</th>
+            <th>Department</th>
+            <th>Request Date</th>
+            <th>Priority</th>
+            <th>Status</th>
+            <th>Items</th>
+            <th>Action</th>
+        </tr>
+        {% for req in requests %}
+        <tr>
+            <td>{{ req.request_number }}</td>
+            <td>{{ req.first_name }} {{ req.last_name }}</td>
+            <td>{{ req.department_name }}</td>
+            <td>{{ req.request_date }}</td>
+            <td>{{ req.priority }}</td>
+            <td>{{ req.status }}</td>
+            <td>{{ req.item_count }} item(s)</td>
+            <td><a href="/requests/review/{{ req.request_id }}">Review</a></td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="8">No requests are currently waiting for review or approval.</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

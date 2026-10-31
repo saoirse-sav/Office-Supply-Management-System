@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Audit Logs{% endblock %}
+{% block content %}
+<h1>Audit Logs</h1>
+<p>Monitor user activities and changes performed in the system.</p>
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Date and Time</th>
+                <th>User</th>
+                <th>Action</th>
+                <th>Table</th>
+                <th>Record ID</th>
+                <th>Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>{{ log.created_at }}</td>
+                <td>{{ log.username or 'Deleted User' }}</td>
+                <td>{{ log.action }}</td>
+                <td>{{ log.table_name or '-' }}</td>
+                <td>{{ log.record_id or '-' }}</td>
+                <td>{{ log.details or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6">No audit records found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -7,6 +7,14 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('OSMS_SECRET_KEY', 'dev-only-key-change-before-deployment')
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
+def write_audit_log(cursor, action, table_name=None, record_id=None, details=None, user_id=None):
+    if user_id is None:
+        user_id = session.get('user_id')
+    cursor.execute(
+        'INSERT INTO audit_logs (user_id, action, table_name, record_id, details) VALUES (%s, %s, %s, %s, %s)',
+        (user_id, action, table_name, record_id, details)
+    )
+
 def get_number(cursor, query):
     # Runs a query that returns one number called n
     cursor.execute(query)
@@ -70,6 +78,8 @@ def add_category():
         conn = get_connection() 
         cursor = conn.cursor() 
         cursor.execute('INSERT INTO supply_categories (category_name, description) VALUES (%s, %s)', (name, description)) 
+        category_id = cursor.lastrowid
+        write_audit_log(cursor, 'Create Category', 'supply_categories', category_id, 'Created category: ' + name)
         conn.commit() 
         conn.close() 
         return redirect('/categories') 
@@ -83,6 +93,7 @@ def edit_category(category_id):
         name = request.form['category_name'] 
         description = request.form['description'] 
         cursor.execute('UPDATE supply_categories SET category_name=%s, description=%s WHERE category_id=%s', (name, description, category_id)) 
+        write_audit_log(cursor, 'Update Category', 'supply_categories', category_id, 'Updated category: ' + name)
         conn.commit() 
         conn.close() 
         return redirect('/categories') 
@@ -96,6 +107,7 @@ def delete_category(category_id):
     conn = get_connection() 
     cursor = conn.cursor() 
     cursor.execute('DELETE FROM supply_categories WHERE category_id=%s', (category_id,)) 
+    write_audit_log(cursor, 'Delete Category', 'supply_categories', category_id, 'Deleted category record.')
     conn.commit() 
     conn.close() 
     return redirect('/categories')
@@ -131,6 +143,8 @@ def add_unit():
         conn = get_connection() 
         cursor = conn.cursor() 
         cursor.execute('INSERT INTO units (unit_name) VALUES (%s)', (name,)) 
+        unit_id = cursor.lastrowid
+        write_audit_log(cursor, 'Create Unit', 'units', unit_id, 'Created unit: ' + name)
         conn.commit() 
         conn.close() 
         return redirect('/units')   
@@ -143,6 +157,7 @@ def edit_unit(unit_id):
     if request.method == 'POST': 
         name = request.form['unit_name'] 
         cursor.execute('UPDATE units SET unit_name=%s WHERE unit_id=%s', (name, unit_id)) 
+        write_audit_log(cursor, 'Update Unit', 'units', unit_id, 'Updated unit: ' + name)
         conn.commit() 
         conn.close() 
         return redirect('/units') 
@@ -156,6 +171,7 @@ def delete_unit(unit_id):
     conn = get_connection() 
     cursor = conn.cursor() 
     cursor.execute('DELETE FROM units WHERE unit_id=%s', (unit_id,)) 
+    write_audit_log(cursor, 'Delete Unit', 'units', unit_id, 'Deleted unit record.')
     conn.commit() 
     conn.close() 
     return redirect('/units') 
@@ -227,6 +243,8 @@ def add_supply():
             error = 'Reorder Level, Maximum Stock, and Unit Cost cannot be negative.' 
         else: 
             cursor.execute('INSERT INTO supplies (supply_code, supply_name, category_id, description, unit_id, brand, reorder_level, maximum_stock, unit_cost) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)', (code, name, category_id, description, unit_id, brand, reorder_level, maximum_stock, unit_cost)) 
+            supply_id = cursor.lastrowid
+            write_audit_log(cursor, 'Create Supply', 'supplies', supply_id, 'Created supply: ' + name + ' (' + code + ').')
             conn.commit() 
             conn.close() 
             return redirect('/supplies')
@@ -257,6 +275,7 @@ def edit_supply(supply_id):
             error = 'Reorder Level, Maximum Stock, and Unit Cost cannot be negative.' 
         else: 
             cursor.execute('UPDATE supplies SET supply_code=%s, supply_name=%s, category_id=%s, description=%s, unit_id=%s, brand=%s, reorder_level=%s, maximum_stock=%s, unit_cost=%s WHERE supply_id=%s', (code,name,category_id,description,unit_id,brand,reorder_level,maximum_stock,unit_cost,supply_id)) 
+            write_audit_log(cursor, 'Update Supply', 'supplies', supply_id, 'Updated supply: ' + name + ' (' + code + ').')
             conn.commit() 
             conn.close() 
             return redirect('/supplies')
@@ -273,7 +292,11 @@ def edit_supply(supply_id):
 def delete_supply(supply_id):
     conn = get_connection()
     cursor = conn.cursor()
+    cursor.execute('SELECT supply_name, supply_code FROM supplies WHERE supply_id=%s', (supply_id,))
+    supply = cursor.fetchone()
     cursor.execute('DELETE FROM supplies WHERE supply_id=%s',(supply_id,))
+    if supply:
+        write_audit_log(cursor, 'Delete Supply', 'supplies', supply_id, 'Deleted supply: ' + supply['supply_name'] + ' (' + supply['supply_code'] + ').')
     conn.commit()
     conn.close()
     return redirect('/supplies')
@@ -325,6 +348,8 @@ def add_supplier():
         conn = get_connection() 
         cursor = conn.cursor() 
         cursor.execute('INSERT INTO suppliers (supplier_code, supplier_name, contact_person, address, email, contact_number, tax_info) VALUES (%s, %s, %s, %s, %s, %s, %s)', (code, name, contact_person, address, email, contact_number, tax_info)) 
+        supplier_id = cursor.lastrowid
+        write_audit_log(cursor, 'Create Supplier', 'suppliers', supplier_id, 'Created supplier: ' + name)
         conn.commit() 
         conn.close() 
         return redirect('/suppliers') 
@@ -343,6 +368,7 @@ def edit_supplier(supplier_id):
         contact_number = request.form['contact_number'] 
         tax_info = request.form['tax_info'] 
         cursor.execute('UPDATE suppliers SET supplier_code=%s, supplier_name=%s, contact_person=%s, address=%s, email=%s, contact_number=%s, tax_info=%s WHERE supplier_id=%s', (code, name, contact_person, address, email, contact_number, tax_info, supplier_id)) 
+        write_audit_log(cursor, 'Update Supplier', 'suppliers', supplier_id, 'Updated supplier: ' + name)
         conn.commit() 
         conn.close() 
         return redirect('/suppliers') 
@@ -428,6 +454,7 @@ def receipt_items(receipt_id):
             new_stock = quantity
             cursor.execute('INSERT INTO inventory (supply_id, current_stock) VALUES (%s, %s)', (supply_id, new_stock))
         cursor.execute('INSERT INTO inventory_transactions (supply_id, transaction_type, quantity, balance_after, reference_type, reference_id) VALUES (%s, %s, %s, %s, %s, %s)', (supply_id, 'Stock In', quantity, new_stock, 'Receipt', receipt_id))
+        write_audit_log(cursor, 'Receive Supplies', 'supply_receipts', receipt_id, 'Received supply ID ' + str(supply_id) + ', quantity: ' + str(quantity) + ', new stock: ' + str(new_stock) + '.')
         conn.commit()
     cursor.execute('SELECT * FROM supply_receipts WHERE receipt_id=%s', (receipt_id,))
     receipt = cursor.fetchone()
@@ -489,6 +516,8 @@ def add_employee():
         email = request.form['email'] 
         contact_number = request.form['contact_number'] 
         cursor.execute('INSERT INTO employees (first_name, last_name, position, department_id, email, contact_number) VALUES (%s, %s, %s, %s, %s, %s)', (first_name, last_name, position, department_id, email, contact_number)) 
+        employee_id = cursor.lastrowid
+        write_audit_log(cursor, 'Create Employee', 'employees', employee_id, 'Created employee: ' + first_name + ' ' + last_name)
         conn.commit() 
         conn.close() 
         return redirect('/employees') 
@@ -542,8 +571,9 @@ def add_request():
             return 'Employee record not found or inactive.', 400
         department_id = employee_row['department_id']
         cursor.execute('INSERT INTO supply_requests (request_number, employee_id, department_id, request_date, purpose, priority, required_date, remarks) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)', (request_number, employee_id, department_id, request_date, purpose, priority, required_date, remarks))
-        conn.commit()
         new_request_id = cursor.lastrowid
+        write_audit_log(cursor, 'Create Request', 'supply_requests', new_request_id, 'Created request: ' + request_number)
+        conn.commit()
         conn.close()
         return redirect('/requests/items/' + str(new_request_id))
     cursor.execute('SELECT * FROM employees WHERE status="Active"')
@@ -573,15 +603,27 @@ def add_receipt():
     conn.close() 
     return render_template('add_receipt.html', suppliers=supplier_list)
 
+
 @app.route('/requests/items/<int:request_id>', methods=['GET', 'POST'])
 def request_items(request_id):
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
     error = None
-    if request.args.get('msg') == 'no_items':
-        error = 'A request cannot be submitted without items. Please add at least one item first.'
     cursor.execute('SELECT * FROM supply_requests WHERE request_id=%s', (request_id,))
     req = cursor.fetchone()
+    if not req:
+        conn.close()
+        return 'Request not found.', 404
+    if session.get('role') == 'Requestor':
+        employee_id = session.get('employee_id')
+        if not employee_id:
+            conn.close()
+            return 'Your account is not linked to an employee record.', 403
+        if req['employee_id'] != employee_id:
+            conn.close()
+            return 'You are not authorized to access this request.', 403
+    if request.args.get('msg') == 'no_items':
+        error = 'A request cannot be submitted without items. Please add at least one item first.'
     editable = req['status'] in ('Draft', 'Returned')
     if request.method == 'POST' and not editable:
         error = 'This request has already been submitted and can no longer be modified.'
@@ -607,12 +649,25 @@ def request_items(request_id):
     conn.close()
     return render_template('request_items.html', req=req, supplies=supply_list, items=items, error=error, editable=editable)
 
+
+
 @app.route('/requests/submit/<int:request_id>')
 def submit_request(request_id):
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute('SELECT status FROM supply_requests WHERE request_id=%s', (request_id,))
+    cursor.execute('SELECT * FROM supply_requests WHERE request_id=%s', (request_id,))
     req = cursor.fetchone()
+    if not req:
+        conn.close()
+        return 'Request not found.', 404
+    if session.get('role') == 'Requestor':
+        employee_id = session.get('employee_id')
+        if not employee_id:
+            conn.close()
+            return 'Your account is not linked to an employee record.', 403
+        if req['employee_id'] != employee_id:
+            conn.close()
+            return 'You are not authorized to submit this request.', 403
     cursor.execute('SELECT COUNT(*) AS item_count FROM request_items WHERE request_id=%s', (request_id,))
     count_row = cursor.fetchone()
     if req['status'] not in ('Draft', 'Returned'):
@@ -622,9 +677,11 @@ def submit_request(request_id):
         conn.close()
         return redirect('/requests/items/' + str(request_id) + '?msg=no_items')
     cursor.execute('UPDATE supply_requests SET status="Submitted" WHERE request_id=%s', (request_id,))
+    write_audit_log(cursor, 'Submit Request', 'supply_requests', request_id, 'Request ' + req['request_number'] + ' was submitted.')
     conn.commit()
     conn.close()
     return redirect('/requests')
+
 
 @app.route('/approval-levels', methods=['GET', 'POST'])
 def approval_levels():
@@ -680,6 +737,17 @@ def toggle_approval_level(level_id):
     conn.close()
     return redirect('/approval-levels')
 
+
+@app.route('/requests/review')
+def approvals_list():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute('SELECT supply_requests.*, employees.first_name, employees.last_name, departments.department_name, (SELECT COUNT(*) FROM request_items WHERE request_items.request_id = supply_requests.request_id) AS item_count FROM supply_requests LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id LEFT JOIN departments ON supply_requests.department_id = departments.department_id WHERE supply_requests.status IN ("Submitted", "Under Review", "For Approval") ORDER BY supply_requests.request_id DESC')
+    approval_requests = cursor.fetchall()
+    conn.close()
+    return render_template('approvals.html', requests=approval_requests)
+
+
 @app.route('/requests/review/<int:request_id>', methods=['GET', 'POST'])
 def review_request(request_id):
     conn = get_connection()
@@ -689,10 +757,13 @@ def review_request(request_id):
         error = 'Remarks are required when rejecting or returning a request.'
     cursor.execute('SELECT supply_requests.*, employees.first_name, employees.last_name, departments.department_name FROM supply_requests LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id LEFT JOIN departments ON supply_requests.department_id = departments.department_id WHERE supply_requests.request_id=%s', (request_id,))
     req = cursor.fetchone()
-    cursor.execute('SELECT request_items.*, supplies.supply_name, inventory.current_stock FROM request_items JOIN supplies ON request_items.supply_id = supplies.supply_id LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id WHERE request_items.request_id=%s', (request_id,))
+    if not req:
+        conn.close()
+        return 'Request not found.', 404
+    cursor.execute('SELECT request_items.*, supplies.supply_name, inventory.current_stock FROM request_items JOIN supplies ON request_items.supply_id = supplies.supply_id LEFT JOIN inventory ON request_items.supply_id = inventory.supply_id WHERE request_items.request_id=%s', (request_id,))
     items = cursor.fetchall()
     if request.method == 'POST':
-        action = request.form['action']
+        action = request.form.get('action')
         if action == 'start' and req['status'] == 'Submitted':
             cursor.execute('UPDATE supply_requests SET status="Under Review" WHERE request_id=%s', (request_id,))
             conn.commit()
@@ -710,7 +781,7 @@ def review_request(request_id):
             if error is None:
                 for item in items:
                     cursor.execute('UPDATE request_items SET approved_qty=%s WHERE request_item_id=%s', (item['approved_qty'], item['request_item_id']))
-                cursor.execute('UPDATE supply_requests SET review_remarks=%s, status="For Approval" WHERE request_id=%s', (request.form['review_remarks'], request_id))
+                cursor.execute('UPDATE supply_requests SET review_remarks=%s, status="For Approval" WHERE request_id=%s', (request.form.get('review_remarks', ''), request_id))
                 conn.commit()
                 conn.close()
                 return redirect('/requests/review/' + str(request_id))
@@ -740,7 +811,7 @@ def decide_request(request_id):
     cursor = conn.cursor(dictionary=True)
     cursor.execute('SELECT status FROM supply_requests WHERE request_id=%s', (request_id,))
     req = cursor.fetchone()
-    approver_name = request.form['approver_name']
+    approver_name = session.get('username') 
     decision = request.form['decision']
     remarks = request.form['remarks'].strip()
     level = get_next_level(cursor, request_id)
@@ -756,6 +827,7 @@ def decide_request(request_id):
             cursor.execute('UPDATE supply_requests SET status="Approved" WHERE request_id=%s', (request_id,))
     else:
         cursor.execute('UPDATE supply_requests SET status=%s WHERE request_id=%s', (decision, request_id))
+    write_audit_log(cursor, decision + ' Request', 'supply_requests', request_id, 'Request decision: ' + decision + '. Approval level: ' + str(level['level_number']) + '. Remarks: ' + remarks)
     conn.commit()
     conn.close()
     return redirect('/requests/review/' + str(request_id))
@@ -800,6 +872,7 @@ def stock_adjustments():
             cursor.execute('INSERT INTO stock_adjustments (supply_id, quantity, reason, adjusted_by, remarks) VALUES (%s, %s, %s, %s, %s)', (supply_id, change, reason, adjusted_by, remarks))
             adjustment_id = cursor.lastrowid
             cursor.execute('INSERT INTO inventory_transactions (supply_id, transaction_type, quantity, balance_after, reference_type, reference_id) VALUES (%s, %s, %s, %s, %s, %s)', (supply_id, 'Adjustment', change, new_stock, 'Adjustment', adjustment_id))
+            write_audit_log(cursor, 'Inventory Adjustment', 'stock_adjustments', adjustment_id, 'Supply ID: ' + str(supply_id) + ', change: ' + str(change) + ', new stock: ' + str(new_stock) + '. Reason: ' + reason + '. Remarks: ' + remarks)
             conn.commit()
             conn.close()
             return redirect('/inventory/adjustments')
@@ -838,6 +911,7 @@ def physical_count():
                     cursor.execute('INSERT INTO inventory (supply_id, current_stock) VALUES (%s, %s)', (supply_id, actual_qty))
                 cursor.execute('INSERT INTO stock_adjustments (supply_id, quantity, reason, adjusted_by, remarks) VALUES (%s, %s, %s, %s, %s)', (supply_id, variance, 'Physical count difference', counted_by, reason))
                 cursor.execute('INSERT INTO inventory_transactions (supply_id, transaction_type, quantity, balance_after, reference_type, reference_id) VALUES (%s, %s, %s, %s, %s, %s)', (supply_id, 'Adjustment', variance, actual_qty, 'Physical Count', count_id))
+            write_audit_log(cursor, 'Physical Count', 'physical_counts', count_id, 'Supply ID: ' + str(supply_id) + ', system quantity: ' + str(system_qty) + ', actual quantity: ' + str(actual_qty) + ', variance: ' + str(variance) + '. Reason: ' + reason)
             conn.commit()
             conn.close()
             return redirect('/inventory/physical-count')
@@ -923,6 +997,7 @@ def issue_request(request_id):
             cursor.execute('SELECT COUNT(*) AS pending FROM request_items WHERE request_id=%s AND approved_qty > issued_qty', (request_id,))
             if cursor.fetchone()['pending'] == 0:
                 cursor.execute('UPDATE supply_requests SET status="Issued" WHERE request_id=%s', (request_id,))
+            write_audit_log(cursor, 'Issue Supplies', 'issuances', issuance_id, 'Issued supplies for request ' + req['request_number'] + '. Issuance number: ' + issuance_number + '. Issued by: ' + issued_by + '.')
             conn.commit()
             conn.close()
             return redirect('/issuance/document/' + str(issuance_id))
@@ -1199,7 +1274,7 @@ def reorder_report():
 
 ROLE_AREAS = {
     'Administrator': ['dashboard', 'masters', 'receiving', 'inventory', 'requests', 'approvals', 'issuance', 'reports', 'admin'],
-    'Supply Officer': ['dashboard', 'masters', 'receiving', 'inventory', 'requests', 'approvals', 'issuance', 'reports'],
+    'Supply Officer': ['dashboard', 'masters', 'receiving', 'inventory', 'requests', 'issuance', 'reports'],
     'Department Head': ['dashboard', 'requests', 'approvals'],
     'Inventory Clerk': ['dashboard', 'receiving', 'inventory'],
     'Requestor': ['requests'],
@@ -1215,7 +1290,7 @@ def get_area(path):
         return 'approvals'
     if path.startswith('/requests'):
         return 'requests'
-    if path.startswith('/approval-levels') or path.startswith('/users'):
+    if path.startswith('/approval-levels') or path.startswith('/users') or path.startswith('/audit-logs'):
         return 'admin'
     if path.startswith('/receipts'):
         return 'receiving'
@@ -1267,6 +1342,7 @@ def login():
             error = 'Too many failed attempts. This account is locked for 15 minutes.'
         elif user and user['status'] == 'Active' and check_password_hash(user['password_hash'], password):
             cursor.execute('UPDATE users SET failed_attempts=0, locked_until=NULL WHERE user_id=%s', (user['user_id'],))
+            write_audit_log(cursor, 'Login', 'users', user['user_id'], 'User logged in successfully.', user['user_id'])
             conn.commit()
             conn.close()
             session.clear()
@@ -1291,6 +1367,11 @@ def login():
 
 @app.route('/logout')
 def logout():
+    conn = get_connection()
+    cursor = conn.cursor()
+    write_audit_log(cursor, 'Logout', 'users', session.get('user_id'), 'User logged out.')
+    conn.commit()
+    conn.close()
     session.clear()
     return redirect('/login')
 
@@ -1352,6 +1433,8 @@ def add_user():
             error = 'A Requestor must be linked to an employee.'
         else:
             cursor.execute('INSERT INTO users (username, password_hash, role_id, employee_id) VALUES (%s, %s, %s, %s)', (username, generate_password_hash(password), role_id, employee_id))
+            new_user_id = cursor.lastrowid
+            write_audit_log(cursor, 'Create User', 'users', new_user_id, 'Created user account: ' + username)
             conn.commit()
             conn.close()
             return redirect('/users')
@@ -1381,6 +1464,7 @@ def edit_user(user_id):
             error = 'A Requestor must be linked to an employee.'
         else:
             cursor.execute('UPDATE users SET role_id=%s, employee_id=%s WHERE user_id=%s', (role_id, employee_id, user_id))
+            write_audit_log(cursor, 'Update User', 'users', user_id, 'Updated user account: ' + user['username'])
             conn.commit()
             conn.close()
             return redirect('/users')
@@ -1405,6 +1489,7 @@ def reset_user_password(user_id):
             error = 'The password must be at least 8 characters long.'
         else:
             cursor.execute('UPDATE users SET password_hash=%s, failed_attempts=0, locked_until=NULL WHERE user_id=%s', (generate_password_hash(new_password), user_id))
+            write_audit_log(cursor, 'Reset User Password', 'users', user_id, 'Reset password for user: ' + user['username'])
             conn.commit()
             conn.close()
             return redirect('/users')
@@ -1421,10 +1506,21 @@ def toggle_user(user_id):
         current = cursor.fetchone()
         new_status = 'Inactive' if current['status'] == 'Active' else 'Active'
         cursor.execute('UPDATE users SET status=%s WHERE user_id=%s', (new_status, user_id))
+        write_audit_log(cursor, 'Change User Status', 'users', user_id, 'Changed status for ' + str(user_id) + ' to ' + new_status)
         conn.commit()
         conn.close()
     return redirect('/users')
 
 
+@app.route('/audit-logs')
+def audit_logs():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute('SELECT audit_logs.*, users.username FROM audit_logs LEFT JOIN users ON audit_logs.user_id = users.user_id ORDER BY audit_logs.created_at DESC, audit_logs.log_id DESC')
+    logs = cursor.fetchall()
+    conn.close()
+    return render_template('audit_logs.html', logs=logs)
+
 if __name__ == '__main__':  
     app.run(host="0.0.0.0", port=5500) 
+

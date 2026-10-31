@@ -1,3 +1,4 @@
+
 {% extends "base.html" %}
 {% block title %}Review Request{% endblock %}
 {% block content %}
@@ -6,119 +7,103 @@
 <p class="error-message">{{ error }}</p>
 {% endif %}
 <div class="card">
-<h3>Request Details</h3>
-<table>
-    <tr>
-    <td><b>Requestor</b></td>
-    <td>{{ req.first_name }} {{ req.last_name }}</td>
-</tr>
-<tr>
-    <td><b>Department</b></td>
-    <td>{{ req.department_name }}</td>
-</tr>
-<tr>
-    <td><b>Request Date</b></td>
-    <td>{{ req.request_date }}</td>
-</tr>
-<tr>
-    <td><b>Required Date</b></td>
-    <td>{{ req.required_date }}</td>
-</tr>
-<tr>
-    <td><b>Purpose</b></td>
-    <td>{{ req.purpose }}</td>
-</tr>
-<tr>
-    <td><b>Priority</b></td>
-    <td>{{ req.priority }}</td>
-</tr>
-<tr>
-    <td><b>Status</b></td>
-    <td>{{ req.status }}</td>
-</tr>
-<tr>
-    <td><b>Requestor Remarks</b></td>
-    <td>{{ req.remarks }}</td>
-</tr>
-</table>
+    <h3>Request Details</h3>
+    <table>
+        <tr><td><b>Requestor</b></td><td>{{ req.first_name }} {{ req.last_name }}</td></tr>
+        <tr><td><b>Department</b></td><td>{{ req.department_name }}</td></tr>
+        <tr><td><b>Request Date</b></td><td>{{ req.request_date }}</td></tr>
+        <tr><td><b>Required Date</b></td><td>{{ req.required_date }}</td></tr>
+        <tr><td><b>Purpose</b></td><td>{{ req.purpose }}</td></tr>
+        <tr><td><b>Priority</b></td><td>{{ req.priority }}</td></tr>
+        <tr><td><b>Status</b></td><td>{{ req.status }}</td></tr>
+        <tr><td><b>Requestor Remarks</b></td><td>{{ req.remarks }}</td></tr>
+    </table>
 </div>
 {% if req.status == 'Submitted' %}
 <div class="card">
     <p>This request is waiting to be reviewed.</p>
     <form method="POST" style="max-width:none; padding:0; box-shadow:none;">
-    <input type="hidden" name="action" value="start">
-    <button type="submit" class="btn">Start Review</button>
+        <input type="hidden" name="action" value="start">
+        <button type="submit" class="btn">Start Review</button>
     </form>
 </div>
 {% endif %}
-{% if req.status == 'Under Review' %}
 <div class="card">
     <h3>Items</h3>
-    <form method="POST" style="max-width:none; padding:0; box-shadow:none;">
-    <input type="hidden" name="action" value="save">
-<table>
-    <tr>
-    <th>Supply</th>
-    <th>Requested Qty</th>  
-    <th>Available Qty</th>
-    <th>Approved Qty</th>
-</tr>
-{% for item in items %}
-<tr>
-    <td>{{ item.supply_name }}</td>
-    <td>{{ item.requested_qty }}</td>
-    <td>{{ item.current_stock or 0 }}</td>
-    <td><input type="number" name="approved_{{ item.request_item_id }}" min="0" max="{{ item.requested_qty }}"value="{{ item.approved_qty if item.approved_qty > 0 else [item.requested_qty, (item.current_stock or 0)]|min }}" style="width:90px;" required></td>
-</tr>
-{% endfor %}
-</table>
-    <label>Review Remarks:</label>
-    <textarea name="review_remarks">{{ req.review_remarks or '' }}</textarea>
-<br><br>
-    <button type="submit" class="btn">Save Review</button>
-</form>
-</div>
-{% else %}
-<div class="card">
-    <h3>Items</h3>
-<table>
-    <tr>
-    <th>Supply</th>
-    <th>Requested Qty</th>
-    <th>Available Qty</th>
-    <th>Approved Qty</th>
-</tr>
-{% for item in items %}
-<tr>
-    <td>{{ item.supply_name }}</td>
-    <td>{{ item.requested_qty }}</td>
-    <td>{{ item.current_stock or 0 }}</td>
-    <td>{{ item.approved_qty }}</td>
-</tr>
-{% endfor %}
+    <table>
+        <tr>
+            <th>Supply</th>
+            <th>Requested Qty</th>
+            <th>Available Qty</th>
+            <th>Approved Qty</th>
+        </tr>
+        {% for item in items %}
+        <tr>
+            <td>{{ item.supply_name }}</td>
+            <td>{{ item.requested_qty }}</td>
+            <td>{{ item.current_stock or 0 }}</td>
+            <td>
+                {% if req.status == 'Under Review' %}
+                <input type="number" form="review-form" name="approved_{{ item.request_item_id }}" min="0" max="{{ item.requested_qty }}" value="{{ item.approved_qty if item.approved_qty > 0 else [item.requested_qty, (item.current_stock or 0)]|min }}" style="width:90px;" required>
+                {% else %}
+                {{ item.approved_qty }}
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
     </table>
+    {% if req.status == 'Under Review' %}
+    <form id="review-form" method="POST" style="max-width:none; padding:0; box-shadow:none;">
+        <input type="hidden" name="action" value="save">
+        <label>Review Remarks:</label>
+        <textarea name="review_remarks">{{ req.review_remarks or '' }}</textarea>
+        <br><br>
+        <button type="submit" class="btn">Save Review</button>
+    </form>
+    {% endif %}
 </div>
-{% endif %}
 {% if req.status == 'For Approval' %}
 <div class="card">
-<h3>Approval Decision</h3>
-{% if next_level %}
-<p>Waiting for: <b>Level {{ next_level.level_number }} - {{ next_level.level_name }}</b></p>
-<form method="POST" action="/requests/decide/{{ req.request_id }}" style="max-width:none; padding:0; box-shadow:none;">
-<label>Your Name:</label>
-<input type="text" name="approver_name" required>
-<label>Remarks (required for Reject or Return):</label>
-<textarea name="remarks"></textarea>
-<br><br>
-<button type="submit" name="decision" value="Approved" class="btn">Approve</button>
-<button type="submit" name="decision" value="Rejected" class="btn">Reject</button>
-<button type="submit" name="decision" value="Returned" class="btn">Return for Revision</button>
-</form>
-{% else %}
-<p>No active approval level is waiting on this request. Check the Approval Levels page.</p>
-{% endif %}
+    <h3>Approval Decision</h3>
+    {% if next_level %}
+    <p>Waiting for: <b>Level {{ next_level.level_number }} - {{ next_level.level_name }}</b></p>
+    <p>Approver: <b>{{ session.username }}</b></p>
+    <form method="POST" action="/requests/decide/{{ req.request_id }}" style="max-width:none; padding:0; box-shadow:none;">
+        <label>Remarks (required for Reject or Return):</label>
+        <textarea name="remarks"></textarea>
+        <br><br>
+        <button type="submit" name="decision" value="Approved" class="btn">Approve</button>
+        <button type="submit" name="decision" value="Rejected" class="btn">Reject</button>
+        <button type="submit" name="decision" value="Returned" class="btn">Return for Revision</button>
+    </form>
+    {% else %}
+    <p>No active approval level is waiting on this request. Check the Approval Levels page.</p>
+    {% endif %}
 </div>
 {% endif %}
+<div class="card">
+    <h3>Approval History</h3>
+    {% if history %}
+    <table>
+        <tr>
+            <th>Approver</th>
+            <th>Approval Level</th>
+            <th>Decision</th>
+            <th>Remarks</th>
+        </tr>
+        {% for record in history %}
+        <tr>
+            <td>{{ record.approver_name }}</td>
+            <td>{{ record.level_name or record.approval_level }}</td>
+            <td>{{ record.decision }}</td>
+            <td>{{ record.remarks }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <p>No approval history recorded yet.</p>
+    {% endif %}
+</div>
 <br>
 <a href="/requests">Back to Requests List</a>
 {% endblock %}

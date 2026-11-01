@@ -1,11 +1,77 @@
 import os
-from flask import Flask, render_template, request, redirect, session
+import math
+from datetime import date
+from flask import Flask, render_template, render_template_string, request, redirect, session
+from werkzeug.exceptions import HTTPException
 from werkzeug.security import generate_password_hash, check_password_hash
 from db import get_connection
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('OSMS_SECRET_KEY', 'dev-only-key-change-before-deployment')
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+
+def render_error_page(code, title, message, status):
+    destination = '/login' if 'user_id' not in session else '/'
+    link_label = 'Go to Login' if 'user_id' not in session else 'Back to Dashboard'
+    page = '''
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{{ code }} - {{ title }} | OSMS</title>
+        <style>
+            *{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#FBF8F1;color:#2C2C2A;font-family:Arial,sans-serif}
+            .error-card{width:100%;max-width:520px;padding:40px 32px;background:#fff;border:1px solid #e8e3d8;border-radius:16px;text-align:center;box-shadow:0 12px 35px rgba(0,0,0,.06)}
+            .code{font-size:48px;font-weight:800;color:#2D4739;margin:0 0 12px}.title{font-size:22px;margin:0 0 12px}.message{font-size:15px;line-height:1.7;color:#666;margin:0 0 26px}
+            a{display:inline-block;padding:12px 20px;border-radius:8px;background:#2D4739;color:#fff;text-decoration:none;font-weight:600}a:hover{background:#23392e}
+        </style>
+    </head>
+    <body><main class="error-card"><p class="code">{{ code }}</p><h1 class="title">{{ title }}</h1><p class="message">{{ message }}</p><a href="{{ destination }}">{{ link_label }}</a></main></body>
+    </html>
+    '''
+    return render_template_string(page, code=code, title=title, message=message, destination=destination, link_label=link_label), status
+
+
+@app.errorhandler(404)
+def handle_not_found(error):
+    return render_error_page(404, 'Page or record not found', 'The page or record you are looking for does not exist, may have been removed, or the address may be incorrect.', 404)
+
+
+@app.errorhandler(403)
+def handle_forbidden(error):
+    return render_error_page(403, 'Access denied', 'You do not have permission to access this page or perform this action. If you believe this is a mistake, contact your system administrator.', 403)
+
+
+@app.errorhandler(500)
+def handle_internal_error(error):
+    original = getattr(error, 'original_exception', None)
+    if original:
+        app.logger.error('Internal server error on %s: %s', request.path, original)
+    else:
+        app.logger.error('Internal server error on %s', request.path)
+    return render_error_page(500, 'Something went wrong', 'OSMS could not complete your request. Please try again. If the problem continues, contact your system administrator.', 500)
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(error):
+    if isinstance(error, HTTPException):
+        return error
+    app.logger.exception('Unhandled application error on %s', request.path)
+    error_name = type(error).__name__.lower()
+    error_module = type(error).__module__.lower()
+    if any(name in error_name for name in ('database', 'operational', 'integrity', 'interface', 'programming')) or any(name in error_module for name in ('mysql', 'pymysql', 'mariadb')):
+        message = 'A database operation could not be completed. Please try again. If the problem continues, contact your system administrator.'
+        return render_error_page(500, 'Database error', message, 500)
+    return render_error_page(500, 'Something went wrong', 'OSMS could not complete your request. Please try again. If the problem continues, contact your system administrator.', 500)
+
+
+def is_valid_date(value):
+    try:
+        return date.fromisoformat(str(value)).isoformat() == str(value)
+    except (ValueError, TypeError):
+        return False
 
 def write_audit_log(cursor, action, table_name=None, record_id=None, details=None, user_id=None):
     if user_id is None:
@@ -230,63 +296,104 @@ def add_supply():
     cursor = conn.cursor(dictionary=True)
     error = None
     if request.method == 'POST':
-        code = request.form['supply_code']
-        name = request.form['supply_name']
-        category_id = request.form['category_id']
-        description = request.form['description']
-        unit_id = request.form['unit_id']
-        brand = request.form['brand']
-        reorder_level = request.form['reorder_level']
-        maximum_stock = request.form['maximum_stock']
-        unit_cost = request.form['unit_cost']
-        if int(reorder_level) < 0 or int(maximum_stock) < 0 or float(unit_cost) < 0: 
-            error = 'Reorder Level, Maximum Stock, and Unit Cost cannot be negative.' 
-        else: 
-            cursor.execute('INSERT INTO supplies (supply_code, supply_name, category_id, description, unit_id, brand, reorder_level, maximum_stock, unit_cost) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)', (code, name, category_id, description, unit_id, brand, reorder_level, maximum_stock, unit_cost)) 
+        code = request.form.get('supply_code', '').strip()
+        name = request.form.get('supply_name', '').strip()
+        category_id = request.form.get('category_id', '').strip()
+        description = request.form.get('description', '').strip()
+        unit_id = request.form.get('unit_id', '').strip()
+        brand = request.form.get('brand', '').strip()
+        reorder_text = request.form.get('reorder_level', '').strip()
+        maximum_text = request.form.get('maximum_stock', '').strip()
+        cost_text = request.form.get('unit_cost', '').strip()
+        try:
+            reorder_level = int(reorder_text)
+            maximum_stock = int(maximum_text)
+            unit_cost = float(cost_text)
+        except (ValueError, TypeError):
+            error = 'Reorder Level and Maximum Stock must be whole numbers, and Unit Cost must be a valid number.'
+        if error is None and (not code or not name or not category_id or not unit_id or not reorder_text or not maximum_text or not cost_text):
+            error = 'Please complete all required fields.'
+        elif error is None and (reorder_level < 0 or maximum_stock < 0 or unit_cost < 0 or not math.isfinite(unit_cost)):
+            error = 'Reorder Level, Maximum Stock, and Unit Cost cannot be negative or invalid.'
+        if error is None:
+            cursor.execute('SELECT supply_id FROM supplies WHERE supply_code=%s', (code,))
+            if cursor.fetchone():
+                error = 'That supply code already exists. Please use a different code.'
+        if error is None:
+            cursor.execute('SELECT category_id FROM supply_categories WHERE category_id=%s', (category_id,))
+            category = cursor.fetchone()
+            cursor.execute('SELECT unit_id FROM units WHERE unit_id=%s', (unit_id,))
+            unit = cursor.fetchone()
+            if not category or not unit:
+                error = 'Please select a valid category and unit.'
+        if error is None:
+            cursor.execute('INSERT INTO supplies (supply_code, supply_name, category_id, description, unit_id, brand, reorder_level, maximum_stock, unit_cost) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)', (code, name, category_id, description, unit_id, brand, reorder_level, maximum_stock, unit_cost))
             supply_id = cursor.lastrowid
             write_audit_log(cursor, 'Create Supply', 'supplies', supply_id, 'Created supply: ' + name + ' (' + code + ').')
-            conn.commit() 
-            conn.close() 
+            conn.commit()
+            conn.close()
             return redirect('/supplies')
     cursor.execute('SELECT * FROM supply_categories')
     category_list = cursor.fetchall()
     cursor.execute('SELECT * FROM units')
     unit_list = cursor.fetchall()
     conn.close()
-    return render_template('add_supply.html',categories=category_list, units=unit_list, error=error)
+    return render_template('add_supply.html', categories=category_list, units=unit_list, error=error)
 
 
 @app.route('/supplies/edit/<int:supply_id>', methods=['GET','POST'])
-def edit_supply(supply_id): 
+def edit_supply(supply_id):
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
     error = None
-    if request.method == 'POST':
-        code = request.form['supply_code']
-        name = request.form['supply_name']
-        category_id = request.form['category_id']
-        description = request.form['description']
-        unit_id = request.form['unit_id']
-        brand = request.form['brand']
-        reorder_level = request.form['reorder_level']
-        maximum_stock = request.form['maximum_stock']
-        unit_cost = request.form['unit_cost']
-        if int(reorder_level) < 0 or int(maximum_stock) < 0 or float(unit_cost) < 0: 
-            error = 'Reorder Level, Maximum Stock, and Unit Cost cannot be negative.' 
-        else: 
-            cursor.execute('UPDATE supplies SET supply_code=%s, supply_name=%s, category_id=%s, description=%s, unit_id=%s, brand=%s, reorder_level=%s, maximum_stock=%s, unit_cost=%s WHERE supply_id=%s', (code,name,category_id,description,unit_id,brand,reorder_level,maximum_stock,unit_cost,supply_id)) 
-            write_audit_log(cursor, 'Update Supply', 'supplies', supply_id, 'Updated supply: ' + name + ' (' + code + ').')
-            conn.commit() 
-            conn.close() 
-            return redirect('/supplies')
     cursor.execute('SELECT * FROM supplies WHERE supply_id=%s', (supply_id,))
     supply = cursor.fetchone()
+    if not supply:
+        conn.close()
+        return render_error_page(404, 'Supply not found', 'The supply record may have been deleted or the link may be incorrect.', 404)[0], 404
+    if request.method == 'POST':
+        code = request.form.get('supply_code', '').strip()
+        name = request.form.get('supply_name', '').strip()
+        category_id = request.form.get('category_id', '').strip()
+        description = request.form.get('description', '').strip()
+        unit_id = request.form.get('unit_id', '').strip()
+        brand = request.form.get('brand', '').strip()
+        reorder_text = request.form.get('reorder_level', '').strip()
+        maximum_text = request.form.get('maximum_stock', '').strip()
+        cost_text = request.form.get('unit_cost', '').strip()
+        try:
+            reorder_level = int(reorder_text)
+            maximum_stock = int(maximum_text)
+            unit_cost = float(cost_text)
+        except (ValueError, TypeError):
+            error = 'Reorder Level and Maximum Stock must be whole numbers, and Unit Cost must be a valid number.'
+        if error is None and (not code or not name or not category_id or not unit_id or not reorder_text or not maximum_text or not cost_text):
+            error = 'Please complete all required fields.'
+        elif error is None and (reorder_level < 0 or maximum_stock < 0 or unit_cost < 0 or not math.isfinite(unit_cost)):
+            error = 'Reorder Level, Maximum Stock, and Unit Cost cannot be negative or invalid.'
+        if error is None:
+            cursor.execute('SELECT supply_id FROM supplies WHERE supply_code=%s AND supply_id<>%s', (code, supply_id))
+            if cursor.fetchone():
+                error = 'That supply code is already used by another supply.'
+        if error is None:
+            cursor.execute('SELECT category_id FROM supply_categories WHERE category_id=%s', (category_id,))
+            category = cursor.fetchone()
+            cursor.execute('SELECT unit_id FROM units WHERE unit_id=%s', (unit_id,))
+            unit = cursor.fetchone()
+            if not category or not unit:
+                error = 'Please select a valid category and unit.'
+        if error is None:
+            cursor.execute('UPDATE supplies SET supply_code=%s, supply_name=%s, category_id=%s, description=%s, unit_id=%s, brand=%s, reorder_level=%s, maximum_stock=%s, unit_cost=%s WHERE supply_id=%s', (code, name, category_id, description, unit_id, brand, reorder_level, maximum_stock, unit_cost, supply_id))
+            write_audit_log(cursor, 'Update Supply', 'supplies', supply_id, 'Updated supply: ' + name + ' (' + code + ').')
+            conn.commit()
+            conn.close()
+            return redirect('/supplies')
     cursor.execute('SELECT * FROM supply_categories')
-    category_list = cursor.fetchall() 
+    category_list = cursor.fetchall()
     cursor.execute('SELECT * FROM units')
     unit_list = cursor.fetchall()
     conn.close()
-    return render_template('edit_supply.html', supply=supply,categories=category_list, units=unit_list, error=error)
+    return render_template('edit_supply.html', supply=supply, categories=category_list, units=unit_list, error=error)
 
 @app.route('/supplies/delete/<int:supply_id>')
 def delete_supply(supply_id):
@@ -336,46 +443,66 @@ def suppliers():
     return render_template('suppliers.html', suppliers=all_suppliers) 
 
 @app.route('/suppliers/add', methods=['GET', 'POST']) 
-def add_supplier(): 
-    if request.method == 'POST': 
-        code = request.form['supplier_code'] 
-        name = request.form['supplier_name'] 
-        contact_person = request.form['contact_person'] 
-        address = request.form['address'] 
-        email = request.form['email'] 
-        contact_number = request.form['contact_number'] 
-        tax_info = request.form['tax_info'] 
-        conn = get_connection() 
-        cursor = conn.cursor() 
-        cursor.execute('INSERT INTO suppliers (supplier_code, supplier_name, contact_person, address, email, contact_number, tax_info) VALUES (%s, %s, %s, %s, %s, %s, %s)', (code, name, contact_person, address, email, contact_number, tax_info)) 
-        supplier_id = cursor.lastrowid
-        write_audit_log(cursor, 'Create Supplier', 'suppliers', supplier_id, 'Created supplier: ' + name)
-        conn.commit() 
-        conn.close() 
-        return redirect('/suppliers') 
-    return render_template('add_supplier.html')
+def add_supplier():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    error = None
+    if request.method == 'POST':
+        code = request.form.get('supplier_code', '').strip()
+        name = request.form.get('supplier_name', '').strip()
+        contact_person = request.form.get('contact_person', '').strip()
+        address = request.form.get('address', '').strip()
+        email = request.form.get('email', '').strip()
+        contact_number = request.form.get('contact_number', '').strip()
+        tax_info = request.form.get('tax_info', '').strip()
+        if not code or not name:
+            error = 'Supplier Code and Supplier Name are required.'
+        if error is None:
+            cursor.execute('SELECT supplier_id FROM suppliers WHERE supplier_code=%s', (code,))
+            if cursor.fetchone():
+                error = 'That supplier code already exists. Please use a different code.'
+        if error is None:
+            cursor.execute('INSERT INTO suppliers (supplier_code, supplier_name, contact_person, address, email, contact_number, tax_info) VALUES (%s, %s, %s, %s, %s, %s, %s)', (code, name, contact_person, address, email, contact_number, tax_info))
+            supplier_id = cursor.lastrowid
+            write_audit_log(cursor, 'Create Supplier', 'suppliers', supplier_id, 'Created supplier: ' + name)
+            conn.commit()
+            conn.close()
+            return redirect('/suppliers')
+    conn.close()
+    return render_template('add_supplier.html', error=error)
 
 @app.route('/suppliers/edit/<int:supplier_id>', methods=['GET', 'POST']) 
-def edit_supplier(supplier_id): 
-    conn = get_connection() 
-    cursor = conn.cursor(dictionary=True) 
-    if request.method == 'POST': 
-        code = request.form['supplier_code'] 
-        name = request.form['supplier_name'] 
-        contact_person = request.form['contact_person'] 
-        address = request.form['address'] 
-        email = request.form['email'] 
-        contact_number = request.form['contact_number'] 
-        tax_info = request.form['tax_info'] 
-        cursor.execute('UPDATE suppliers SET supplier_code=%s, supplier_name=%s, contact_person=%s, address=%s, email=%s, contact_number=%s, tax_info=%s WHERE supplier_id=%s', (code, name, contact_person, address, email, contact_number, tax_info, supplier_id)) 
-        write_audit_log(cursor, 'Update Supplier', 'suppliers', supplier_id, 'Updated supplier: ' + name)
-        conn.commit() 
-        conn.close() 
-        return redirect('/suppliers') 
-    cursor.execute('SELECT * FROM suppliers WHERE supplier_id=%s', (supplier_id,)) 
-    supplier = cursor.fetchone() 
-    conn.close() 
-    return render_template('edit_supplier.html', supplier=supplier) 
+def edit_supplier(supplier_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute('SELECT * FROM suppliers WHERE supplier_id=%s', (supplier_id,))
+    supplier = cursor.fetchone()
+    if not supplier:
+        conn.close()
+        return render_error_page(404, 'Supplier not found', 'The supplier record may have been deleted or the link may be incorrect.', 404)[0], 404
+    error = None
+    if request.method == 'POST':
+        code = request.form.get('supplier_code', '').strip()
+        name = request.form.get('supplier_name', '').strip()
+        contact_person = request.form.get('contact_person', '').strip()
+        address = request.form.get('address', '').strip()
+        email = request.form.get('email', '').strip()
+        contact_number = request.form.get('contact_number', '').strip()
+        tax_info = request.form.get('tax_info', '').strip()
+        if not code or not name:
+            error = 'Supplier Code and Supplier Name are required.'
+        if error is None:
+            cursor.execute('SELECT supplier_id FROM suppliers WHERE supplier_code=%s AND supplier_id<>%s', (code, supplier_id))
+            if cursor.fetchone():
+                error = 'That supplier code is already used by another supplier.'
+        if error is None:
+            cursor.execute('UPDATE suppliers SET supplier_code=%s, supplier_name=%s, contact_person=%s, address=%s, email=%s, contact_number=%s, tax_info=%s WHERE supplier_id=%s', (code, name, contact_person, address, email, contact_number, tax_info, supplier_id))
+            write_audit_log(cursor, 'Update Supplier', 'suppliers', supplier_id, 'Updated supplier: ' + name)
+            conn.commit()
+            conn.close()
+            return redirect('/suppliers')
+    conn.close()
+    return render_template('edit_supplier.html', supplier=supplier, error=error)
 
 @app.route('/suppliers/toggle/<int:supplier_id>') 
 def toggle_supplier(supplier_id): 
@@ -438,32 +565,54 @@ def receipts():
 def receipt_items(receipt_id):
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
-    if request.method == 'POST':
-        supply_id = request.form['supply_id']
-        quantity = int(request.form['quantity'])
-        unit_cost = float(request.form['unit_cost'])
-        total_cost = quantity * unit_cost
-        batch_reference = request.form['batch_reference']
-        cursor.execute('INSERT INTO receipt_items (receipt_id, supply_id, quantity, unit_cost, total_cost, batch_reference) VALUES (%s, %s, %s, %s, %s, %s)', (receipt_id, supply_id, quantity, unit_cost, total_cost, batch_reference))
-        cursor.execute('SELECT * FROM inventory WHERE supply_id=%s', (supply_id,))
-        existing_inventory = cursor.fetchone()
-        if existing_inventory:
-            new_stock = existing_inventory['current_stock'] + quantity
-            cursor.execute('UPDATE inventory SET current_stock=%s WHERE supply_id=%s', (new_stock, supply_id))
-        else:
-            new_stock = quantity
-            cursor.execute('INSERT INTO inventory (supply_id, current_stock) VALUES (%s, %s)', (supply_id, new_stock))
-        cursor.execute('INSERT INTO inventory_transactions (supply_id, transaction_type, quantity, balance_after, reference_type, reference_id) VALUES (%s, %s, %s, %s, %s, %s)', (supply_id, 'Stock In', quantity, new_stock, 'Receipt', receipt_id))
-        write_audit_log(cursor, 'Receive Supplies', 'supply_receipts', receipt_id, 'Received supply ID ' + str(supply_id) + ', quantity: ' + str(quantity) + ', new stock: ' + str(new_stock) + '.')
-        conn.commit()
+    error = None
     cursor.execute('SELECT * FROM supply_receipts WHERE receipt_id=%s', (receipt_id,))
     receipt = cursor.fetchone()
-    cursor.execute('SELECT supplies.* FROM supplies JOIN supplier_supplies ON supplies.supply_id = supplier_supplies.supply_id WHERE supplier_supplies.supplier_id=%s AND supplies.status="Active"', (receipt['supplier_id'],))
+    if not receipt:
+        conn.close()
+        return render_error_page(404, 'Receipt not found', 'The receipt record may have been deleted or the link may be incorrect.', 404)[0], 404
+    if request.method == 'POST':
+        supply_id = request.form.get('supply_id', '').strip()
+        quantity_text = request.form.get('quantity', '').strip()
+        cost_text = request.form.get('unit_cost', '').strip()
+        batch_reference = request.form.get('batch_reference', '').strip()
+        try:
+            quantity = int(quantity_text)
+            unit_cost = float(cost_text)
+        except (ValueError, TypeError):
+            quantity = None
+            unit_cost = None
+            error = 'Quantity must be a whole number and Unit Cost must be a valid number.'
+        if error is None and (not supply_id or not quantity_text or not cost_text):
+            error = 'Please complete all required receipt item fields.'
+        elif error is None and quantity <= 0:
+            error = 'Received quantity must be greater than zero.'
+        elif error is None and (unit_cost < 0 or not math.isfinite(unit_cost)):
+            error = 'Unit Cost cannot be negative or invalid.'
+        if error is None:
+            cursor.execute('SELECT supplies.supply_id FROM supplies JOIN supplier_supplies ON supplies.supply_id=supplier_supplies.supply_id WHERE supplies.supply_id=%s AND supplier_supplies.supplier_id=%s AND supplies.status="Active"', (supply_id, receipt['supplier_id']))
+            valid_supply = cursor.fetchone()
+            if not valid_supply:
+                error = 'Please select an active supply assigned to this receipt supplier.'
+        if error is None:
+            total_cost = quantity * unit_cost
+            cursor.execute('INSERT INTO receipt_items (receipt_id, supply_id, quantity, unit_cost, total_cost, batch_reference) VALUES (%s, %s, %s, %s, %s, %s)', (receipt_id, supply_id, quantity, unit_cost, total_cost, batch_reference))
+            cursor.execute('SELECT current_stock FROM inventory WHERE supply_id=%s', (supply_id,))
+            existing_inventory = cursor.fetchone()
+            new_stock = (existing_inventory['current_stock'] if existing_inventory else 0) + quantity
+            if existing_inventory:
+                cursor.execute('UPDATE inventory SET current_stock=%s WHERE supply_id=%s', (new_stock, supply_id))
+            else:
+                cursor.execute('INSERT INTO inventory (supply_id, current_stock) VALUES (%s, %s)', (supply_id, new_stock))
+            cursor.execute('INSERT INTO inventory_transactions (supply_id, transaction_type, quantity, balance_after, reference_type, reference_id) VALUES (%s, %s, %s, %s, %s, %s)', (supply_id, 'Stock In', quantity, new_stock, 'Receipt', receipt_id))
+            write_audit_log(cursor, 'Receive Supplies', 'supply_receipts', receipt_id, 'Received supply ID ' + str(supply_id) + ', quantity: ' + str(quantity) + ', new stock: ' + str(new_stock) + '.')
+            conn.commit()
+    cursor.execute('SELECT supplies.* FROM supplies JOIN supplier_supplies ON supplies.supply_id=supplier_supplies.supply_id WHERE supplier_supplies.supplier_id=%s AND supplies.status="Active"', (receipt['supplier_id'],))
     supply_list = cursor.fetchall()
-    cursor.execute('SELECT receipt_items.*, supplies.supply_name FROM receipt_items JOIN supplies ON receipt_items.supply_id = supplies.supply_id WHERE receipt_items.receipt_id=%s', (receipt_id,))
+    cursor.execute('SELECT receipt_items.*, supplies.supply_name FROM receipt_items JOIN supplies ON receipt_items.supply_id=supplies.supply_id WHERE receipt_items.receipt_id=%s', (receipt_id,))
     items = cursor.fetchall()
     conn.close()
-    return render_template('receipt_items.html', receipt=receipt, supplies=supply_list, items=items)
+    return render_template('receipt_items.html', receipt=receipt, supplies=supply_list, items=items, error=error)
 
 @app.route('/inventory/transactions') 
 def inventory_transactions(): 
@@ -550,6 +699,7 @@ def requests_list():
 def add_request():
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
+    error = None
     if request.method == 'POST':
         if session.get('role') == 'Requestor':
             employee_id = session.get('employee_id')
@@ -557,51 +707,76 @@ def add_request():
                 conn.close()
                 return 'Your account is not linked to an employee record.', 403
         else:
-            employee_id = request.form['employee_id']
-        request_number = request.form['request_number']
-        request_date = request.form['request_date']
-        purpose = request.form.get('purpose', '')
-        priority = request.form['priority']
-        required_date = request.form.get('required_date') or None
-        remarks = request.form.get('remarks', '')
-        cursor.execute('SELECT department_id FROM employees WHERE employee_id=%s AND status="Active"', (employee_id,))
-        employee_row = cursor.fetchone()
-        if not employee_row:
+            employee_id = request.form.get('employee_id', '').strip()
+        request_number = request.form.get('request_number', '').strip()
+        request_date = request.form.get('request_date', '').strip()
+        purpose = request.form.get('purpose', '').strip()
+        priority = request.form.get('priority', '').strip()
+        required_date = request.form.get('required_date', '').strip() or None
+        remarks = request.form.get('remarks', '').strip()
+        if not request_number or not request_date or not priority or not employee_id:
+            error = 'Please complete all required request fields.'
+        elif not is_valid_date(request_date) or (required_date and not is_valid_date(required_date)):
+            error = 'Please enter a valid request date and required date.'
+        elif required_date and required_date < request_date:
+            error = 'Required Date cannot be earlier than Request Date.'
+        if error is None:
+            cursor.execute('SELECT department_id FROM employees WHERE employee_id=%s AND status="Active"', (employee_id,))
+            employee_row = cursor.fetchone()
+            if not employee_row:
+                error = 'Employee record not found or inactive. Please select a valid active employee.'
+        if error is None:
+            cursor.execute('SELECT request_id FROM supply_requests WHERE request_number=%s', (request_number,))
+            if cursor.fetchone():
+                error = 'That request number already exists.'
+        if error is None:
+            department_id = employee_row['department_id']
+            cursor.execute('INSERT INTO supply_requests (request_number, employee_id, department_id, request_date, purpose, priority, required_date, remarks) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)', (request_number, employee_id, department_id, request_date, purpose, priority, required_date, remarks))
+            new_request_id = cursor.lastrowid
+            write_audit_log(cursor, 'Create Request', 'supply_requests', new_request_id, 'Created request: ' + request_number)
+            conn.commit()
             conn.close()
-            return 'Employee record not found or inactive.', 400
-        department_id = employee_row['department_id']
-        cursor.execute('INSERT INTO supply_requests (request_number, employee_id, department_id, request_date, purpose, priority, required_date, remarks) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)', (request_number, employee_id, department_id, request_date, purpose, priority, required_date, remarks))
-        new_request_id = cursor.lastrowid
-        write_audit_log(cursor, 'Create Request', 'supply_requests', new_request_id, 'Created request: ' + request_number)
-        conn.commit()
-        conn.close()
-        return redirect('/requests/items/' + str(new_request_id))
+            return redirect('/requests/items/' + str(new_request_id))
     cursor.execute('SELECT * FROM employees WHERE status="Active"')
     employee_list = cursor.fetchall()
     conn.close()
-    return render_template('add_request.html', employees=employee_list)
+    return render_template('add_request.html', employees=employee_list, error=error)
 
 
 @app.route('/receipts/add', methods=['GET', 'POST']) 
-def add_receipt(): 
-    conn = get_connection() 
-    cursor = conn.cursor(dictionary=True) 
-    if request.method == 'POST': 
-        receipt_number = request.form['receipt_number'] 
-        supplier_id = request.form['supplier_id'] 
-        delivery_date = request.form['delivery_date'] 
-        po_reference = request.form['po_reference'] 
-        received_by = request.form['received_by'] 
-        remarks = request.form['remarks'] 
-        cursor.execute('INSERT INTO supply_receipts (receipt_number, supplier_id, delivery_date, po_reference, received_by, remarks) VALUES (%s, %s, %s, %s, %s, %s)', (receipt_number, supplier_id, delivery_date, po_reference, received_by, remarks))
-        new_receipt_id = cursor.lastrowid
-        conn.commit() 
-        conn.close() 
-        return redirect('/receipts/items/' + str(new_receipt_id)) 
-    cursor.execute('SELECT * FROM suppliers WHERE status="Active"') 
-    supplier_list = cursor.fetchall() 
-    conn.close() 
-    return render_template('add_receipt.html', suppliers=supplier_list)
+def add_receipt():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    error = None
+    if request.method == 'POST':
+        receipt_number = request.form.get('receipt_number', '').strip()
+        supplier_id = request.form.get('supplier_id', '').strip()
+        delivery_date = request.form.get('delivery_date', '').strip()
+        po_reference = request.form.get('po_reference', '').strip()
+        received_by = request.form.get('received_by', '').strip()
+        remarks = request.form.get('remarks', '').strip()
+        if not receipt_number or not supplier_id or not delivery_date or not received_by:
+            error = 'Receipt Number, Supplier, Delivery Date, and Received By are required.'
+        elif not is_valid_date(delivery_date):
+            error = 'Please enter a valid delivery date.'
+        if error is None:
+            cursor.execute('SELECT supplier_id FROM suppliers WHERE supplier_id=%s AND status="Active"', (supplier_id,))
+            if not cursor.fetchone():
+                error = 'Please select a valid active supplier.'
+        if error is None:
+            cursor.execute('SELECT receipt_id FROM supply_receipts WHERE receipt_number=%s', (receipt_number,))
+            if cursor.fetchone():
+                error = 'That receipt number already exists.'
+        if error is None:
+            cursor.execute('INSERT INTO supply_receipts (receipt_number, supplier_id, delivery_date, po_reference, received_by, remarks) VALUES (%s, %s, %s, %s, %s, %s)', (receipt_number, supplier_id, delivery_date, po_reference, received_by, remarks))
+            new_receipt_id = cursor.lastrowid
+            conn.commit()
+            conn.close()
+            return redirect('/receipts/items/' + str(new_receipt_id))
+    cursor.execute('SELECT * FROM suppliers WHERE status="Active"')
+    supplier_list = cursor.fetchall()
+    conn.close()
+    return render_template('add_receipt.html', suppliers=supplier_list, error=error)
 
 
 @app.route('/requests/items/<int:request_id>', methods=['GET', 'POST'])
@@ -613,7 +788,7 @@ def request_items(request_id):
     req = cursor.fetchone()
     if not req:
         conn.close()
-        return 'Request not found.', 404
+        return render_error_page(404, 'Request not found', 'The request record may have been deleted or the link may be incorrect.', 404)[0], 404
     if session.get('role') == 'Requestor':
         employee_id = session.get('employee_id')
         if not employee_id:
@@ -628,23 +803,37 @@ def request_items(request_id):
     if request.method == 'POST' and not editable:
         error = 'This request has already been submitted and can no longer be modified.'
     elif request.method == 'POST':
-        supply_id = request.form['supply_id']
-        requested_qty = int(request.form['requested_qty'])
-        cursor.execute('SELECT * FROM request_items WHERE request_id=%s AND supply_id=%s', (request_id, supply_id))
-        duplicate_check = cursor.fetchone()
-        cursor.execute('SELECT current_stock FROM inventory WHERE supply_id=%s', (supply_id,))
-        stock_row = cursor.fetchone()
-        available = stock_row['current_stock'] if stock_row else 0
-        if duplicate_check:
-            error = 'This supply has already been added to this request.'
-        elif requested_qty > available:
-            error = 'Requested quantity (' + str(requested_qty) + ') exceeds available stock (' + str(available) + ').'
-        else:
+        supply_id = request.form.get('supply_id', '').strip()
+        quantity_text = request.form.get('requested_qty', '').strip()
+        try:
+            requested_qty = int(quantity_text)
+        except (ValueError, TypeError):
+            requested_qty = None
+            error = 'Requested quantity must be a valid whole number.'
+        if error is None and (not supply_id or not quantity_text):
+            error = 'Please select a supply and enter a quantity.'
+        elif error is None and requested_qty <= 0:
+            error = 'Requested quantity must be greater than zero.'
+        if error is None:
+            cursor.execute('SELECT supply_id FROM supplies WHERE supply_id=%s AND status="Active"', (supply_id,))
+            if not cursor.fetchone():
+                error = 'Please select a valid active supply.'
+        if error is None:
+            cursor.execute('SELECT request_item_id FROM request_items WHERE request_id=%s AND supply_id=%s', (request_id, supply_id))
+            if cursor.fetchone():
+                error = 'This supply has already been added to this request.'
+        if error is None:
+            cursor.execute('SELECT current_stock FROM inventory WHERE supply_id=%s', (supply_id,))
+            stock_row = cursor.fetchone()
+            available = stock_row['current_stock'] if stock_row else 0
+            if requested_qty > available:
+                error = 'Requested quantity (' + str(requested_qty) + ') exceeds available stock (' + str(available) + ').'
+        if error is None:
             cursor.execute('INSERT INTO request_items (request_id, supply_id, requested_qty) VALUES (%s, %s, %s)', (request_id, supply_id, requested_qty))
             conn.commit()
-    cursor.execute('SELECT supplies.*, inventory.current_stock FROM supplies LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id WHERE supplies.status="Active"')
+    cursor.execute('SELECT supplies.*, inventory.current_stock FROM supplies LEFT JOIN inventory ON supplies.supply_id=inventory.supply_id WHERE supplies.status="Active"')
     supply_list = cursor.fetchall()
-    cursor.execute('SELECT request_items.*, supplies.supply_name, inventory.current_stock FROM request_items JOIN supplies ON request_items.supply_id = supplies.supply_id LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id WHERE request_items.request_id=%s', (request_id,))
+    cursor.execute('SELECT request_items.*, supplies.supply_name, inventory.current_stock FROM request_items JOIN supplies ON request_items.supply_id=supplies.supply_id LEFT JOIN inventory ON supplies.supply_id=inventory.supply_id WHERE request_items.request_id=%s', (request_id,))
     items = cursor.fetchall()
     conn.close()
     return render_template('request_items.html', req=req, supplies=supply_list, items=items, error=error, editable=editable)
@@ -659,7 +848,7 @@ def submit_request(request_id):
     req = cursor.fetchone()
     if not req:
         conn.close()
-        return 'Request not found.', 404
+        return render_error_page(404, 'Request not found', 'The request record may have been deleted or the link may be incorrect.', 404)[0], 404
     if session.get('role') == 'Requestor':
         employee_id = session.get('employee_id')
         if not employee_id:
@@ -755,40 +944,56 @@ def review_request(request_id):
     error = None
     if request.args.get('msg') == 'remarks_required':
         error = 'Remarks are required when rejecting or returning a request.'
-    cursor.execute('SELECT supply_requests.*, employees.first_name, employees.last_name, departments.department_name FROM supply_requests LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id LEFT JOIN departments ON supply_requests.department_id = departments.department_id WHERE supply_requests.request_id=%s', (request_id,))
+    elif request.args.get('msg') == 'invalid_decision':
+        error = 'The selected approval decision is invalid. Please choose Approve, Reject, or Return.'
+    elif request.args.get('msg') == 'invalid_approval':
+        error = 'This request is not currently waiting for an approval decision, or no approval level is available.'
+    cursor.execute('SELECT supply_requests.*, employees.first_name, employees.last_name, departments.department_name FROM supply_requests LEFT JOIN employees ON supply_requests.employee_id=employees.employee_id LEFT JOIN departments ON supply_requests.department_id=departments.department_id WHERE supply_requests.request_id=%s', (request_id,))
     req = cursor.fetchone()
     if not req:
         conn.close()
-        return 'Request not found.', 404
-    cursor.execute('SELECT request_items.*, supplies.supply_name, inventory.current_stock FROM request_items JOIN supplies ON request_items.supply_id = supplies.supply_id LEFT JOIN inventory ON request_items.supply_id = inventory.supply_id WHERE request_items.request_id=%s', (request_id,))
+        return render_error_page(404, 'Request not found', 'The request record may have been deleted or the link may be incorrect.', 404)[0], 404
+    cursor.execute('SELECT request_items.*, supplies.supply_name, inventory.current_stock FROM request_items JOIN supplies ON request_items.supply_id=supplies.supply_id LEFT JOIN inventory ON request_items.supply_id=inventory.supply_id WHERE request_items.request_id=%s', (request_id,))
     items = cursor.fetchall()
     if request.method == 'POST':
         action = request.form.get('action')
         if action == 'start' and req['status'] == 'Submitted':
-            cursor.execute('UPDATE supply_requests SET status="Under Review" WHERE request_id=%s', (request_id,))
-            conn.commit()
-            conn.close()
-            return redirect('/requests/review/' + str(request_id))
+            if not items:
+                error = 'This request has no items and cannot be reviewed.'
+            else:
+                cursor.execute('UPDATE supply_requests SET status="Under Review" WHERE request_id=%s', (request_id,))
+                conn.commit()
+                conn.close()
+                return redirect('/requests/review/' + str(request_id))
         elif action == 'save' and req['status'] == 'Under Review':
             for item in items:
-                value = int(request.form['approved_' + str(item['request_item_id'])])
+                value_text = request.form.get('approved_' + str(item['request_item_id']), '').strip()
+                try:
+                    value = int(value_text)
+                except (ValueError, TypeError):
+                    error = 'Enter a valid whole-number approved quantity for ' + item['supply_name'] + '.'
+                    break
                 item['approved_qty'] = value
                 available = item['current_stock'] or 0
                 if value < 0 or value > item['requested_qty']:
                     error = 'Approved quantity for ' + item['supply_name'] + ' must be between 0 and the requested quantity (' + str(item['requested_qty']) + ').'
-                elif value > available:
+                    break
+                if value > available:
                     error = 'Approved quantity for ' + item['supply_name'] + ' (' + str(value) + ') exceeds available stock (' + str(available) + ').'
+                    break
+            if not items:
+                error = 'This request has no items to approve.'
             if error is None:
                 for item in items:
                     cursor.execute('UPDATE request_items SET approved_qty=%s WHERE request_item_id=%s', (item['approved_qty'], item['request_item_id']))
-                cursor.execute('UPDATE supply_requests SET review_remarks=%s, status="For Approval" WHERE request_id=%s', (request.form.get('review_remarks', ''), request_id))
+                cursor.execute('UPDATE supply_requests SET review_remarks=%s, status="For Approval" WHERE request_id=%s', (request.form.get('review_remarks', '').strip(), request_id))
                 conn.commit()
                 conn.close()
                 return redirect('/requests/review/' + str(request_id))
     next_level = None
     if req['status'] == 'For Approval':
         next_level = get_next_level(cursor, request_id)
-    cursor.execute('SELECT approvals.*, approval_levels.level_name FROM approvals LEFT JOIN approval_levels ON approvals.approval_level = approval_levels.level_number WHERE approvals.request_id=%s ORDER BY approvals.approval_id', (request_id,))
+    cursor.execute('SELECT approvals.*, approval_levels.level_name FROM approvals LEFT JOIN approval_levels ON approvals.approval_level=approval_levels.level_number WHERE approvals.request_id=%s ORDER BY approvals.approval_id', (request_id,))
     history = cursor.fetchall()
     conn.close()
     return render_template('review_request.html', req=req, items=items, error=error, next_level=next_level, history=history)
@@ -811,13 +1016,19 @@ def decide_request(request_id):
     cursor = conn.cursor(dictionary=True)
     cursor.execute('SELECT status FROM supply_requests WHERE request_id=%s', (request_id,))
     req = cursor.fetchone()
-    approver_name = session.get('username') 
-    decision = request.form['decision']
-    remarks = request.form['remarks'].strip()
-    level = get_next_level(cursor, request_id)
-    if req['status'] != 'For Approval' or level is None or decision not in ('Approved', 'Rejected', 'Returned'):
+    if not req:
         conn.close()
-        return redirect('/requests/review/' + str(request_id))
+        return render_error_page(404, 'Request not found', 'The request record may have been deleted or the link may be incorrect.', 404)[0], 404
+    approver_name = session.get('username')
+    decision = request.form.get('decision', '').strip()
+    remarks = request.form.get('remarks', '').strip()
+    level = get_next_level(cursor, request_id)
+    if decision not in ('Approved', 'Rejected', 'Returned'):
+        conn.close()
+        return redirect('/requests/review/' + str(request_id) + '?msg=invalid_decision')
+    if req['status'] != 'For Approval' or level is None:
+        conn.close()
+        return redirect('/requests/review/' + str(request_id) + '?msg=invalid_approval')
     if decision in ('Rejected', 'Returned') and remarks == '':
         conn.close()
         return redirect('/requests/review/' + str(request_id) + '?msg=remarks_required')
@@ -847,24 +1058,38 @@ def stock_adjustments():
     cursor = conn.cursor(dictionary=True)
     error = None
     if request.method == 'POST':
-        supply_id = request.form['supply_id']
-        direction = request.form['direction']
-        quantity = int(request.form['quantity'])
-        reason = request.form['reason']
-        adjusted_by = request.form['adjusted_by']
-        remarks = request.form['remarks'].strip()
-        cursor.execute('SELECT current_stock FROM inventory WHERE supply_id=%s', (supply_id,))
-        stock_row = cursor.fetchone()
-        current_stock = stock_row['current_stock'] if stock_row else 0
-        change = quantity if direction == 'Increase' else -quantity
-        new_stock = current_stock + change
-        if quantity < 1:
+        supply_id = request.form.get('supply_id', '').strip()
+        direction = request.form.get('direction', '').strip()
+        quantity_text = request.form.get('quantity', '').strip()
+        reason = request.form.get('reason', '').strip()
+        adjusted_by = request.form.get('adjusted_by', '').strip()
+        remarks = request.form.get('remarks', '').strip()
+        try:
+            quantity = int(quantity_text)
+        except (ValueError, TypeError):
+            quantity = None
+            error = 'Quantity must be a valid whole number.'
+        if error is None and (not supply_id or not adjusted_by or not reason or not quantity_text):
+            error = 'Please complete all required adjustment fields.'
+        elif error is None and quantity < 1:
             error = 'Quantity must be at least 1.'
-        elif remarks == '':
+        elif error is None and direction not in ('Increase', 'Decrease'):
+            error = 'Please select a valid adjustment direction.'
+        elif error is None and not remarks:
             error = 'Remarks are required for every adjustment.'
-        elif new_stock < 0:
-            error = 'This adjustment would make stock negative. Current stock is ' + str(current_stock) + '.'
-        else:
+        if error is None:
+            cursor.execute('SELECT supplies.supply_id FROM supplies WHERE supply_id=%s AND status="Active"', (supply_id,))
+            if not cursor.fetchone():
+                error = 'Please select a valid active supply.'
+        if error is None:
+            cursor.execute('SELECT current_stock FROM inventory WHERE supply_id=%s', (supply_id,))
+            stock_row = cursor.fetchone()
+            current_stock = stock_row['current_stock'] if stock_row else 0
+            change = quantity if direction == 'Increase' else -quantity
+            new_stock = current_stock + change
+            if new_stock < 0:
+                error = 'This adjustment would make stock negative. Current stock is ' + str(current_stock) + '.'
+        if error is None:
             if stock_row:
                 cursor.execute('UPDATE inventory SET current_stock=%s WHERE supply_id=%s', (new_stock, supply_id))
             else:
@@ -876,9 +1101,9 @@ def stock_adjustments():
             conn.commit()
             conn.close()
             return redirect('/inventory/adjustments')
-    cursor.execute('SELECT supplies.supply_id, supplies.supply_code, supplies.supply_name, COALESCE(inventory.current_stock, 0) AS stock FROM supplies LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id WHERE supplies.status="Active" ORDER BY supplies.supply_name')
+    cursor.execute('SELECT supplies.supply_id, supplies.supply_code, supplies.supply_name, COALESCE(inventory.current_stock, 0) AS stock FROM supplies LEFT JOIN inventory ON supplies.supply_id=inventory.supply_id WHERE supplies.status="Active" ORDER BY supplies.supply_name')
     supply_list = cursor.fetchall()
-    cursor.execute('SELECT stock_adjustments.*, supplies.supply_name FROM stock_adjustments JOIN supplies ON stock_adjustments.supply_id = supplies.supply_id ORDER BY stock_adjustments.adjustment_id DESC')
+    cursor.execute('SELECT stock_adjustments.*, supplies.supply_name FROM stock_adjustments JOIN supplies ON stock_adjustments.supply_id=supplies.supply_id ORDER BY stock_adjustments.adjustment_id DESC')
     adjustments = cursor.fetchall()
     conn.close()
     return render_template('stock_adjustments.html', supplies=supply_list, adjustments=adjustments, error=error)
@@ -889,19 +1114,31 @@ def physical_count():
     cursor = conn.cursor(dictionary=True)
     error = None
     if request.method == 'POST':
-        supply_id = request.form['supply_id']
-        actual_qty = int(request.form['actual_qty'])
-        counted_by = request.form['counted_by']
-        reason = request.form['reason'].strip()
-        cursor.execute('SELECT current_stock FROM inventory WHERE supply_id=%s', (supply_id,))
-        stock_row = cursor.fetchone()
-        system_qty = stock_row['current_stock'] if stock_row else 0
-        variance = actual_qty - system_qty
-        if actual_qty < 0:
+        supply_id = request.form.get('supply_id', '').strip()
+        actual_text = request.form.get('actual_qty', '').strip()
+        counted_by = request.form.get('counted_by', '').strip()
+        reason = request.form.get('reason', '').strip()
+        try:
+            actual_qty = int(actual_text)
+        except (ValueError, TypeError):
+            actual_qty = None
+            error = 'Actual quantity must be a valid whole number.'
+        if error is None and (not supply_id or not actual_text or not counted_by):
+            error = 'Please select a supply, enter the actual quantity, and provide the counted-by name.'
+        elif error is None and actual_qty < 0:
             error = 'Actual quantity cannot be negative.'
-        elif variance != 0 and reason == '':
-            error = 'A reason is required when the actual count differs from the system quantity.'
-        else:
+        if error is None:
+            cursor.execute('SELECT current_stock FROM inventory WHERE supply_id=%s', (supply_id,))
+            stock_row = cursor.fetchone()
+            cursor.execute('SELECT supply_id FROM supplies WHERE supply_id=%s AND status="Active"', (supply_id,))
+            if not cursor.fetchone():
+                error = 'Please select a valid active supply.'
+        if error is None:
+            system_qty = stock_row['current_stock'] if stock_row else 0
+            variance = actual_qty - system_qty
+            if variance != 0 and reason == '':
+                error = 'A reason is required when the actual count differs from the system quantity.'
+        if error is None:
             cursor.execute('INSERT INTO physical_counts (supply_id, system_qty, actual_qty, variance, reason, counted_by) VALUES (%s, %s, %s, %s, %s, %s)', (supply_id, system_qty, actual_qty, variance, reason, counted_by))
             count_id = cursor.lastrowid
             if variance != 0:
@@ -915,9 +1152,9 @@ def physical_count():
             conn.commit()
             conn.close()
             return redirect('/inventory/physical-count')
-    cursor.execute('SELECT supplies.supply_id, supplies.supply_code, supplies.supply_name, COALESCE(inventory.current_stock, 0) AS stock FROM supplies LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id WHERE supplies.status="Active" ORDER BY supplies.supply_name')
+    cursor.execute('SELECT supplies.supply_id, supplies.supply_code, supplies.supply_name, COALESCE(inventory.current_stock, 0) AS stock FROM supplies LEFT JOIN inventory ON supplies.supply_id=inventory.supply_id WHERE supplies.status="Active" ORDER BY supplies.supply_name')
     supply_list = cursor.fetchall()
-    cursor.execute('SELECT physical_counts.*, supplies.supply_name FROM physical_counts JOIN supplies ON physical_counts.supply_id = supplies.supply_id ORDER BY physical_counts.count_id DESC')
+    cursor.execute('SELECT physical_counts.*, supplies.supply_name FROM physical_counts JOIN supplies ON physical_counts.supply_id=supplies.supply_id ORDER BY physical_counts.count_id DESC')
     counts = cursor.fetchall()
     conn.close()
     return render_template('physical_count.html', supplies=supply_list, counts=counts, error=error)
@@ -928,6 +1165,9 @@ def inventory_history(supply_id):
     cursor = conn.cursor(dictionary=True)
     cursor.execute('SELECT supplies.*, units.unit_name FROM supplies LEFT JOIN units ON supplies.unit_id = units.unit_id WHERE supplies.supply_id=%s', (supply_id,))
     supply = cursor.fetchone()
+    if not supply:
+        conn.close()
+        return render_error_page(404, 'Supply not found', 'The supply record may have been deleted or the link may be incorrect.', 404)[0], 404
     cursor.execute('SELECT current_stock FROM inventory WHERE supply_id=%s', (supply_id,))
     stock_row = cursor.fetchone()
     balance = stock_row['current_stock'] if stock_row else 0
@@ -955,31 +1195,47 @@ def issue_request(request_id):
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
     error = None
-    cursor.execute('SELECT supply_requests.*, employees.first_name, employees.last_name, departments.department_name FROM supply_requests LEFT JOIN employees ON supply_requests.employee_id = employees.employee_id LEFT JOIN departments ON supply_requests.department_id = departments.department_id WHERE supply_requests.request_id=%s', (request_id,))
+    cursor.execute('SELECT supply_requests.*, employees.first_name, employees.last_name, departments.department_name FROM supply_requests LEFT JOIN employees ON supply_requests.employee_id=employees.employee_id LEFT JOIN departments ON supply_requests.department_id=departments.department_id WHERE supply_requests.request_id=%s', (request_id,))
     req = cursor.fetchone()
+    if not req:
+        conn.close()
+        return render_error_page(404, 'Request not found', 'The request record may have been deleted or the link may be incorrect.', 404)[0], 404
     if req['status'] != 'Approved':
         conn.close()
-        return redirect('/issuance')
-    cursor.execute('SELECT request_items.*, supplies.supply_name, supplies.unit_id, units.unit_name, COALESCE(inventory.current_stock, 0) AS stock FROM request_items JOIN supplies ON request_items.supply_id = supplies.supply_id LEFT JOIN units ON supplies.unit_id = units.unit_id LEFT JOIN inventory ON supplies.supply_id = inventory.supply_id WHERE request_items.request_id=%s AND request_items.approved_qty > request_items.issued_qty', (request_id,))
+        return render_error_page(400, 'Invalid issuance', 'Only fully approved requests can be issued. Return to the issuance queue and select an approved request.', 400)[0], 400
+    cursor.execute('SELECT request_items.*, supplies.supply_name, supplies.unit_id, units.unit_name, COALESCE(inventory.current_stock, 0) AS stock FROM request_items JOIN supplies ON request_items.supply_id=supplies.supply_id LEFT JOIN units ON supplies.unit_id=units.unit_id LEFT JOIN inventory ON supplies.supply_id=inventory.supply_id WHERE request_items.request_id=%s AND request_items.approved_qty>request_items.issued_qty', (request_id,))
     items = cursor.fetchall()
     for item in items:
         item['remaining'] = item['approved_qty'] - item['issued_qty']
         item['max_issue'] = min(item['remaining'], item['stock'])
     if request.method == 'POST':
-        issued_by = request.form['issued_by']
-        issuance_date = request.form['issuance_date']
-        remarks = request.form['remarks']
+        issued_by = request.form.get('issued_by', '').strip()
+        issuance_date = request.form.get('issuance_date', '').strip()
+        remarks = request.form.get('remarks', '').strip()
+        if not issued_by or not issuance_date:
+            error = 'Issued By and Issuance Date are required.'
+        elif not is_valid_date(issuance_date):
+            error = 'Please enter a valid issuance date.'
         total = 0
         for item in items:
-            qty = int(request.form['issue_' + str(item['request_item_id'])])
+            qty_text = request.form.get('issue_' + str(item['request_item_id']), '').strip()
+            try:
+                qty = int(qty_text)
+            except (ValueError, TypeError):
+                error = 'Enter a valid whole-number quantity for ' + item['supply_name'] + '.'
+                break
             item['issue_qty'] = qty
             if qty < 0 or qty > item['remaining']:
                 error = 'Quantity for ' + item['supply_name'] + ' must be between 0 and the remaining approved quantity (' + str(item['remaining']) + ').'
-            elif qty > item['stock']:
+                break
+            if qty > item['stock']:
                 error = 'Cannot issue ' + str(qty) + ' of ' + item['supply_name'] + '. Only ' + str(item['stock']) + ' in stock.'
+                break
             total += qty
         if error is None and total == 0:
             error = 'Enter a quantity to issue for at least one item.'
+        if error is None and not items:
+            error = 'There are no approved items remaining to issue.'
         if error is None:
             cursor.execute('SELECT COALESCE(MAX(issuance_id), 0) + 1 AS next_id, YEAR(CURDATE()) AS year FROM issuances')
             number_row = cursor.fetchone()
@@ -993,8 +1249,8 @@ def issue_request(request_id):
                     cursor.execute('INSERT INTO issuance_items (issuance_id, supply_id, approved_qty, issued_qty, unit_id) VALUES (%s, %s, %s, %s, %s)', (issuance_id, item['supply_id'], item['approved_qty'], qty, item['unit_id']))
                     cursor.execute('UPDATE inventory SET current_stock=%s WHERE supply_id=%s', (new_stock, item['supply_id']))
                     cursor.execute('INSERT INTO inventory_transactions (supply_id, transaction_type, quantity, balance_after, reference_type, reference_id) VALUES (%s, %s, %s, %s, %s, %s)', (item['supply_id'], 'Issued', qty, new_stock, 'Issuance', issuance_id))
-                    cursor.execute('UPDATE request_items SET issued_qty = issued_qty + %s WHERE request_item_id=%s', (qty, item['request_item_id']))
-            cursor.execute('SELECT COUNT(*) AS pending FROM request_items WHERE request_id=%s AND approved_qty > issued_qty', (request_id,))
+                    cursor.execute('UPDATE request_items SET issued_qty=issued_qty+%s WHERE request_item_id=%s', (qty, item['request_item_id']))
+            cursor.execute('SELECT COUNT(*) AS pending FROM request_items WHERE request_id=%s AND approved_qty>issued_qty', (request_id,))
             if cursor.fetchone()['pending'] == 0:
                 cursor.execute('UPDATE supply_requests SET status="Issued" WHERE request_id=%s', (request_id,))
             write_audit_log(cursor, 'Issue Supplies', 'issuances', issuance_id, 'Issued supplies for request ' + req['request_number'] + '. Issuance number: ' + issuance_number + '. Issued by: ' + issued_by + '.')
@@ -1425,12 +1681,22 @@ def add_user():
         taken = cursor.fetchone()
         cursor.execute('SELECT role_name FROM roles WHERE role_id=%s', (role_id,))
         role_row = cursor.fetchone()
-        if taken:
+        employee_valid = True
+        if employee_id:
+            cursor.execute('SELECT employee_id FROM employees WHERE employee_id=%s AND status="Active"', (employee_id,))
+            employee_valid = cursor.fetchone() is not None
+        if not username:
+            error = 'Username is required.'
+        elif not role_row:
+            error = 'Please select a valid role.'
+        elif taken:
             error = 'That username is already taken.'
         elif len(password) < 8:
             error = 'The password must be at least 8 characters long.'
         elif role_row['role_name'] == 'Requestor' and not employee_id:
             error = 'A Requestor must be linked to an employee.'
+        elif employee_id and not employee_valid:
+            error = 'Please select a valid active employee.'
         else:
             cursor.execute('INSERT INTO users (username, password_hash, role_id, employee_id) VALUES (%s, %s, %s, %s)', (username, generate_password_hash(password), role_id, employee_id))
             new_user_id = cursor.lastrowid
@@ -1460,8 +1726,16 @@ def edit_user(user_id):
             role_id = user['role_id']
         cursor.execute('SELECT role_name FROM roles WHERE role_id=%s', (role_id,))
         role_row = cursor.fetchone()
-        if role_row['role_name'] == 'Requestor' and not employee_id:
+        employee_valid = True
+        if employee_id:
+            cursor.execute('SELECT employee_id FROM employees WHERE employee_id=%s AND status="Active"', (employee_id,))
+            employee_valid = cursor.fetchone() is not None
+        if not role_row:
+            error = 'Please select a valid role.'
+        elif role_row['role_name'] == 'Requestor' and not employee_id:
             error = 'A Requestor must be linked to an employee.'
+        elif employee_id and not employee_valid:
+            error = 'Please select a valid active employee.'
         else:
             cursor.execute('UPDATE users SET role_id=%s, employee_id=%s WHERE user_id=%s', (role_id, employee_id, user_id))
             write_audit_log(cursor, 'Update User', 'users', user_id, 'Updated user account: ' + user['username'])

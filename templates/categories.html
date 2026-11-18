@@ -1,34 +1,92 @@
- {% extends "base.html" %} 
- {% block title %}
- Categories{% endblock %} 
- {% block content %} 
- <h1>Supply Categories</h1> 
- <div class="search-bar"> 
-    <form method="GET"> 
-        <input type="text" name="search" placeholder="Search by category name" value="{{ request.args.get('search', '') }}"> 
-        <button type="submit" class="btn">Search</button> 
-        <a href="/categories">Clear</a> 
-    </form> 
-</div> 
-<a href="/categories/add" class="btn">Add New Category</a> 
-<div class="card">
-<table> 
-    <tr> 
-        <th>ID</th> 
-        <th>Category Name</th> 
-        <th>Description</th> 
-        <th>Status</th> 
-        <th>Action</th> 
-    </tr> 
-    {% for category in categories %} 
-    <tr> 
-        <td>{{ category.category_id }}</td> 
-        <td>{{ category.category_name }}</td> 
-        <td>{{ category.description }}</td> 
-        <td>{% if category.status == 'Active' %}<span class="badge badge-active">Active</span>{% else %}<span class="badge badge-inactive">Inactive</span>{% endif %}</td>
-        <td><a href="/categories/edit/{{ category.category_id }}">Edit</a> | <a href="/categories/delete/{{ category.category_id }}" onclick="return confirm('Are you sure you want to delete this category?')">Delete</a> | <a href="/categories/toggle/{{ category.category_id }}">{% if category.status == 'Active' %}Deactivate{% else %}Activate{% endif %}</a></td> 
-    </tr> 
-    {% endfor %} 
-</table> 
+{% extends "base.html" %}
+{% block title %}Supply Categories | OSMS{% endblock %}
+
+{% block head %}
+<style>
+.category-toolbar { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin:20px 0 16px; }
+.category-search { display:flex; align-items:center; gap:8px; width:min(100%,520px); }
+.category-search input { flex:1; min-width:150px; }
+.category-search .btn { white-space:nowrap; }
+.category-table-card { padding:0; overflow:hidden; }
+.category-table-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:17px 20px; border-bottom:1px solid var(--line); }
+.category-table-heading strong { color:var(--ink); font-size:12px; }
+.category-table-heading span { color:var(--muted); font-size:10px; }
+.category-table-card .table-wrap { border:0; border-radius:0; }
+.category-table-card th:first-child, .category-table-card td:first-child { padding-left:20px; }
+.category-name { color:var(--ink); font-weight:700; }
+.category-description { color:var(--muted); }
+.category-actions { display:flex; align-items:center; flex-wrap:wrap; gap:6px; }
+.category-actions a { display:inline-flex; align-items:center; justify-content:center; min-height:29px; padding:5px 9px; border:1px solid var(--line); border-radius:7px; color:#536258; background:#fff; text-decoration:none; font-size:10px; font-weight:650; }
+.category-actions a:hover { color:var(--green-900); background:var(--green-50); border-color:#cbd9ce; }
+.category-actions a.delete-action { color:var(--red); }
+.category-actions a.delete-action:hover { background:var(--red-bg); border-color:#f0d4d0; }
+.category-empty { padding:34px 16px; text-align:center; color:var(--muted); font-size:12px; }
+@media(max-width:650px) { .category-toolbar { align-items:stretch; flex-direction:column; } .category-search { width:100%; flex-wrap:wrap; } .category-search input { flex-basis:100%; } .category-toolbar > .btn { width:100%; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Supply Categories</h1>
+        <p>Organize office supplies into clear, manageable groups.</p>
+    </div>
+</div>
+
+<div class="category-toolbar">
+    <form method="GET" class="category-search">
+        <input type="text" name="search" aria-label="Search categories" placeholder="Search by category name" value="{{ request.args.get('search', '') }}">
+        <button type="submit" class="btn"><i class="ti ti-search"></i> Search</button>
+        <a href="/categories" class="btn btn-secondary">Clear</a>
+    </form>
+    <a href="/categories/add" class="btn"><i class="ti ti-plus"></i> Add New Category</a>
+</div>
+
+<div class="card category-table-card">
+    <div class="category-table-heading">
+        <strong>Category Directory</strong>
+        <span>Manage your supply classifications</span>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Category Name</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for category in categories %}
+                <tr>
+                    <td>{{ category.category_id }}</td>
+                    <td class="category-name">{{ category.category_name }}</td>
+                    <td class="category-description">{{ category.description or '—' }}</td>
+                    <td>
+                        {% if category.status == 'Active' %}
+                            <span class="badge badge-active">Active</span>
+                        {% else %}
+                            <span class="badge badge-inactive">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="category-actions">
+                            <a href="/categories/edit/{{ category.category_id }}"><i class="ti ti-pencil"></i> Edit</a>
+                            <a class="delete-action" href="/categories/delete/{{ category.category_id }}" onclick="return confirm('Are you sure you want to delete this category?')"><i class="ti ti-trash"></i> Delete</a>
+                            <a href="/categories/toggle/{{ category.category_id }}">
+                                <i class="ti ti-power"></i>
+                                {% if category.status == 'Active' %}Deactivate{% else %}Activate{% endif %}
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="category-empty">No categories found. Add a category to get started.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}

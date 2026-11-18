@@ -1,53 +1,168 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>{% block title %}OSMS{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}OSMS | Office Supply Management System{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block head %}{% endblock %}
 </head>
 <body>
-    <div class="sidebar">
-        <div class="sidebar-logo"><i class="ti ti-briefcase"></i>OSMS</div>
-        {% if can('dashboard') %}<a href="/"><i class="ti ti-home"></i>Dashboard</a>{% endif %}
-        {% if can('masters') %}
-        <a href="/categories"><i class="ti ti-category"></i>Categories</a>
-        <a href="/units"><i class="ti ti-ruler-2"></i>Units</a>
-        <a href="/supplies"><i class="ti ti-box"></i>Supplies</a>
-        <a href="/suppliers"><i class="ti ti-truck-delivery"></i>Suppliers</a>
-        {% endif %}
-        {% if can('receiving') %}<a href="/receipts"><i class="ti ti-receipt"></i>Receipts</a>{% endif %}
-        {% if can('inventory') %}
-        <a href="/inventory/transactions"><i class="ti ti-history"></i>Inventory History</a>
-        <a href="/inventory/adjustments"><i class="ti ti-adjustments"></i>Stock Adjustments</a>
-        <a href="/inventory/physical-count"><i class="ti ti-clipboard-check"></i>Physical Count</a>
-        <a href="/inventory"><i class="ti ti-packages"></i>Inventory</a>
-        {% endif %}
-        {% if can('masters') %}
-        <a href="/departments"><i class="ti ti-building"></i>Departments</a>
-        <a href="/employees"><i class="ti ti-users"></i>Employees</a>
-        {% endif %}
-        {% if can('requests') %}<a href="/requests"><i class="ti ti-clipboard-list"></i>Requests</a>{% endif %}
-        {% if can('approvals') %}<a href="/requests/review"><i class="ti ti-checklist"></i>Approvals</a>{% endif %}
-        {% if can('issuance') %}
-        <a href="/issuance"><i class="ti ti-send"></i>Issuance</a>
-        <a href="/issuances"><i class="ti ti-files"></i>Issuance Records</a>
-        {% endif %}
-        {% if can('admin') %}
-        <a href="/approval-levels"><i class="ti ti-list-check"></i>Approval Levels</a>
-        <a href="/users"><i class="ti ti-user-cog"></i>Users</a>
-        <a href="/audit-logs"><i class="ti ti-history"></i>Audit Logs</a>
-        {% endif %}
-        {% if can('reports') %}<a href="/reports"><i class="ti ti-report"></i>Reports</a>{% endif %}
-        <div class="sidebar-user">
-            <p>{{ session.username }} ({{ session.role }})</p>
-            <a href="/account/password"><i class="ti ti-key"></i>Change Password</a>
-            <a href="/logout"><i class="ti ti-logout"></i>Logout</a>
-        </div>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <a class="brand" href="/" aria-label="OSMS Dashboard">
+                <span class="brand-mark" aria-hidden="true">
+                    <svg viewBox="0 0 48 48" role="img">
+                        <path d="M24 3.8 43 14.5v19L24 44.2 5 33.5v-19L24 3.8Z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>
+                        <path d="m5.8 14.8 18.2 10 18.2-10M24 25v18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>
+                        <path d="m15.2 9 18.3 10.1-9.5 5.2L5.8 14.8 15.2 9Z" fill="currentColor" opacity=".18"/>
+                        <path d="m24 25 18.2-10.2v10.4L24 35.4V25Z" fill="currentColor" opacity=".12"/>
+                    </svg>
+                </span>
+                <span class="brand-copy">
+                    <strong>OSMS</strong>
+                    <small>Office Supply<br>Management System</small>
+                </span>
+            </a>
+
+            <nav class="sidebar-nav" aria-label="Main navigation">
+                {% if can('dashboard') %}
+                <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">
+                    <i class="ti ti-layout-dashboard"></i><span>Dashboard</span>
+                </a>
+                {% endif %}
+
+                {% if can('masters') %}
+                <div class="nav-section-label">CATALOG</div>
+                <a href="/categories" class="nav-link {% if request.path.startswith('/categories') %}active{% endif %}">
+                    <i class="ti ti-category"></i><span>Categories</span>
+                </a>
+                <a href="/units" class="nav-link {% if request.path.startswith('/units') %}active{% endif %}">
+                    <i class="ti ti-ruler-2"></i><span>Units</span>
+                </a>
+                <a href="/supplies" class="nav-link {% if request.path.startswith('/supplies') %}active{% endif %}">
+                    <i class="ti ti-package"></i><span>Supplies</span>
+                </a>
+                <a href="/suppliers" class="nav-link {% if request.path.startswith('/suppliers') %}active{% endif %}">
+                    <i class="ti ti-truck-delivery"></i><span>Suppliers</span>
+                </a>
+                {% endif %}
+
+                {% if can('receiving') or can('inventory') %}
+                <div class="nav-section-label">INVENTORY OPERATIONS</div>
+                {% if can('receiving') %}
+                <a href="/receipts" class="nav-link {% if request.path.startswith('/receipts') %}active{% endif %}">
+                    <i class="ti ti-receipt"></i><span>Receipts</span>
+                </a>
+                {% endif %}
+                {% if can('inventory') %}
+                <a href="/inventory" class="nav-link {% if request.path == '/inventory' %}active{% endif %}">
+                    <i class="ti ti-boxes"></i><span>Inventory</span>
+                </a>
+                <a href="/inventory/transactions" class="nav-link {% if request.path.startswith('/inventory/transactions') %}active{% endif %}">
+                    <i class="ti ti-history"></i><span>Inventory History</span>
+                </a>
+                <a href="/inventory/adjustments" class="nav-link {% if request.path.startswith('/inventory/adjustments') %}active{% endif %}">
+                    <i class="ti ti-adjustments"></i><span>Stock Adjustments</span>
+                </a>
+                <a href="/inventory/physical-count" class="nav-link {% if request.path.startswith('/inventory/physical-count') %}active{% endif %}">
+                    <i class="ti ti-clipboard-check"></i><span>Physical Count</span>
+                </a>
+                {% endif %}
+                {% endif %}
+
+                {% if can('masters') %}
+                <div class="nav-section-label">ORGANIZATION</div>
+                <a href="/departments" class="nav-link {% if request.path.startswith('/departments') %}active{% endif %}">
+                    <i class="ti ti-building"></i><span>Departments</span>
+                </a>
+                <a href="/employees" class="nav-link {% if request.path.startswith('/employees') %}active{% endif %}">
+                    <i class="ti ti-users"></i><span>Employees</span>
+                </a>
+                {% endif %}
+
+                {% if can('requests') or can('approvals') or can('issuance') %}
+                <div class="nav-section-label">REQUESTS & ISSUANCE</div>
+                {% if can('requests') %}
+                <a href="/requests" class="nav-link {% if request.path.startswith('/requests') and not request.path.startswith('/requests/review') %}active{% endif %}">
+                    <i class="ti ti-clipboard-list"></i><span>Requests</span>
+                </a>
+                {% endif %}
+                {% if can('approvals') %}
+                <a href="/requests/review" class="nav-link {% if request.path.startswith('/requests/review') %}active{% endif %}">
+                    <i class="ti ti-checklist"></i><span>Approvals</span>
+                </a>
+                {% endif %}
+                {% if can('issuance') %}
+                <a href="/issuance" class="nav-link {% if request.path == '/issuance' %}active{% endif %}">
+                    <i class="ti ti-send"></i><span>Issuance</span>
+                </a>
+                <a href="/issuances" class="nav-link {% if request.path.startswith('/issuances') %}active{% endif %}">
+                    <i class="ti ti-file-text"></i><span>Issuance Records</span>
+                </a>
+                {% endif %}
+                {% endif %}
+
+                {% if can('admin') %}
+                <div class="nav-section-label">ADMINISTRATION</div>
+                <a href="/approval-levels" class="nav-link {% if request.path.startswith('/approval-levels') %}active{% endif %}">
+                    <i class="ti ti-list-check"></i><span>Approval Levels</span>
+                </a>
+                <a href="/users" class="nav-link {% if request.path.startswith('/users') %}active{% endif %}">
+                    <i class="ti ti-user-cog"></i><span>Users</span>
+                </a>
+                <a href="/audit-logs" class="nav-link {% if request.path.startswith('/audit-logs') %}active{% endif %}">
+                    <i class="ti ti-shield-check"></i><span>Audit Logs</span>
+                </a>
+                {% endif %}
+
+                {% if can('reports') %}
+                <div class="nav-section-label">ANALYTICS</div>
+                <a href="/reports" class="nav-link {% if request.path.startswith('/reports') %}active{% endif %}">
+                    <i class="ti ti-chart-bar"></i><span>Reports</span>
+                </a>
+                {% endif %}
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-card">
+                    <span class="user-avatar"><i class="ti ti-user"></i></span>
+                    <span class="user-meta">
+                        <strong>{{ session.username }}</strong>
+                        <small>{{ session.role }}</small>
+                    </span>
+                </div>
+                <a href="/account/password" class="footer-link">
+                    <i class="ti ti-key"></i><span>Change Password</span>
+                </a>
+                <a href="/logout" class="footer-link">
+                    <i class="ti ti-logout"></i><span>Logout</span>
+                </a>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div class="topbar-context">
+                    <span class="topbar-eyebrow">OFFICE SUPPLY MANAGEMENT SYSTEM</span>
+                    <span class="topbar-caption">Workspace</span>
+                </div>
+                <div class="topbar-account">
+                    <span class="topbar-role">{{ session.role }}</span>
+                    <span class="topbar-avatar"><i class="ti ti-user"></i></span>
+                </div>
+            </header>
+
+            <section class="page-content">
+                {% block content %}{% endblock %}
+            </section>
+            <footer class="app-footer">OSMS <span>•</span> Office Supply Management System</footer>
+        </main>
     </div>
-    <div class="main-content">
-        {% block content %}{% endblock %}
-    </div>
+    {% block scripts %}{% endblock %}
 </body>
 </html>

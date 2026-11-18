@@ -1,17 +1,71 @@
-<!DOCTYPE html> 
-<html> 
-    <head> 
-        <title>Add Category</title> 
-    </head> 
-    <body> 
-        <h1>Add New Supply Category</h1> 
-        <form method="POST"> 
-            <label>Category Name:</label><br> 
-            <input type="text" name="category_name" required><br><br> 
-            <label>Description:</label><br> 
-            <textarea name="description"></textarea><br><br> 
-            <button type="submit">Save Category</button> 
-        </form> <br> 
-            <a href="/categories">Back to Categories List</a> 
-        </body> 
-        </html>
+{% extends "base.html" %}
+{% block title %}Add Supply Category | OSMS{% endblock %}
+
+{% block head %}
+<style>
+.category-form-layout { display:grid; grid-template-columns:minmax(0, 720px) minmax(190px, 1fr); gap:18px; align-items:start; }
+.category-form-card { padding:24px; }
+.category-form-card form { max-width:none; }
+.category-form-card .form-group { margin-bottom:20px; }
+.category-form-card input, .category-form-card textarea { max-width:100%; }
+.category-form-card textarea { min-height:125px; }
+.category-form-note { padding:19px; background:var(--green-50); border:1px solid #e1ebe2; border-radius:12px; }
+.category-form-note .note-icon { display:grid; place-items:center; width:37px; height:37px; margin-bottom:12px; color:var(--green-900); background:#fff; border-radius:10px; font-size:19px; }
+.category-form-note strong { display:block; margin-bottom:6px; color:var(--green-900); font-size:12px; }
+.category-form-note p { margin:0; color:#68776d; font-size:11px; line-height:1.65; }
+.category-breadcrumb { margin-bottom:12px; color:var(--muted); font-size:11px; }
+.category-breadcrumb a { color:var(--green-800); text-decoration:none; }
+.category-breadcrumb a:hover { text-decoration:underline; }
+@media(max-width:850px) { .category-form-layout { grid-template-columns:1fr; } .category-form-note { order:-1; } }
+@media(max-width:600px) { .category-form-card { padding:17px; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="category-breadcrumb"><a href="/categories">Categories</a> <span>/</span> Add new</div>
+<div class="page-header">
+    <div>
+        <h1>Add New Supply Category</h1>
+        <p>Create a category to keep your office supplies organized.</p>
+    </div>
+</div>
+
+<div class="category-form-layout">
+    <section class="card category-form-card">
+        <form method="POST">
+            <div class="form-group">
+                <label for="category_name">Category Name <span aria-hidden="true">*</span></label>
+                <input
+                    type="text"
+                    id="category_name"
+                    name="category_name"
+                    placeholder="e.g. Office Stationery"
+                    required
+                >
+                <small class="text-muted">Use a short, recognizable name.</small>
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea
+                    id="description"
+                    name="description"
+                    rows="4"
+                    placeholder="Briefly describe the types of supplies in this category."
+                ></textarea>
+            </div>
+
+            <div class="form-actions">
+                <a href="/categories" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn"><i class="ti ti-device-floppy"></i> Save Category</button>
+            </div>
+        </form>
+    </section>
+
+    <aside class="category-form-note">
+        <div class="note-icon"><i class="ti ti-info-circle"></i></div>
+        <strong>Keep categories consistent</strong>
+        <p>Choose clear names that make supplies easy to find, filter, and report on. You can update a category later if its details change.</p>
+    </aside>
+</div>
+{% endblock %}

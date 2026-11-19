@@ -1,23 +1,375 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Login - OSMS</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>OSMS Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f4f6f3;
+            color: #1c2b24;
+            min-height: 100vh;
+            display: flex;
+        }
+
+        /* ---------- LEFT GREEN PANEL ---------- */
+        .brand-panel {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 60px;
+            color: #ffffff;
+            background: linear-gradient(145deg, #173a2c 0%, #1f4a38 50%, #316b53 100%);
+        }
+
+        /* decorative circles */
+        .brand-panel::before,
+        .brand-panel::after {
+            content: "";
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.06);
+        }
+        .brand-panel::before { width: 420px; height: 420px; top: -140px; right: -120px; }
+        .brand-panel::after  { width: 300px; height: 300px; bottom: -100px; left: -80px; }
+
+        .brand-content { position: relative; z-index: 1; max-width: 460px; }
+
+        .brand-tag {
+            display: inline-block;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            background: rgba(255, 255, 255, 0.14);
+            padding: 6px 14px;
+            border-radius: 999px;
+            margin-bottom: 24px;
+        }
+
+        .brand-content h1 {
+            font-size: 42px;
+            font-weight: 800;
+            line-height: 1.15;
+            margin-bottom: 16px;
+        }
+
+        .brand-content p {
+            font-size: 16px;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 36px;
+        }
+
+        .feature {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 16px;
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        .feature-dot {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.16);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        /* ---------- RIGHT FORM PANEL ---------- */
+        .form-panel {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 24px;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 420px;
+            background: #ffffff;
+            border-radius: 20px;
+            padding: 44px 40px;
+            box-shadow: 0 20px 50px rgba(31, 74, 56, 0.12);
+        }
+
+        .login-card h2 {
+            font-size: 30px;
+            font-weight: 800;
+            margin-bottom: 6px;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: #6b7a72;
+            margin-bottom: 28px;
+        }
+
+        .field { margin-bottom: 20px; }
+
+        .field label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #3d4f45;
+            margin-bottom: 8px;
+        }
+
+        .input-wrap { position: relative; }
+
+        .input-wrap svg.icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 18px;
+            height: 18px;
+            stroke: #8a9a91;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .input-wrap input {
+            width: 100%;
+            padding: 14px 44px 14px 44px;
+            font-family: inherit;
+            font-size: 15px;
+            border: 1px solid #dfe5e1;
+            border-radius: 12px;
+            background: #fafbfa;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+        }
+
+        .input-wrap input:focus {
+            border-color: #316b53;
+            background: #ffffff;
+            box-shadow: 0 0 0 4px rgba(49, 107, 83, 0.12);
+        }
+
+        .toggle-btn {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 6px;
+            display: flex;
+        }
+
+        .toggle-btn svg {
+            width: 18px;
+            height: 18px;
+            stroke: #8a9a91;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .login-btn {
+            width: 100%;
+            margin-top: 8px;
+            padding: 14px;
+            font-family: inherit;
+            font-size: 15px;
+            font-weight: 700;
+            color: #ffffff;
+            background: #1f4a38;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .login-btn:hover  { background: #173a2c; }
+        .login-btn:active { transform: scale(0.99); }
+
+        .alert {
+            background: #fdecec;
+            color: #a33a3a;
+            border: 1px solid #f5c6c6;
+            padding: 12px 14px;
+            border-radius: 10px;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .footer-note {
+            text-align: center;
+            font-size: 12px;
+            color: #8a9a91;
+            margin-top: 24px;
+        }
+
+        /* ---------- MOBILE / SMALL SCREENS ---------- */
+                /* ---------- DEMO ACCOUNTS ---------- */
+        .demo-box {
+            margin-top: 28px;
+            padding-top: 22px;
+            border-top: 1px dashed #dfe5e1;
+        }
+
+        .demo-title {
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            color: #6b7a72;
+            margin-bottom: 4px;
+        }
+
+        .demo-hint {
+            font-size: 12px;
+            color: #8a9a91;
+            margin-bottom: 12px;
+        }
+
+        .demo-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .demo-table th {
+            text-align: left;
+            font-size: 11px;
+            font-weight: 600;
+            color: #8a9a91;
+            padding: 6px 8px;
+        }
+
+        .demo-table td {
+            padding: 8px;
+            border-top: 1px solid #eef1ef;
+        }
+
+
+        .demo-table td.user { font-weight: 600; color: #1f4a38; }
+        .demo-table td.pass { font-family: Consolas, monospace; color: #3d4f45; }
+
+        @media (max-width: 900px) {
+            .brand-panel { display: none; }
+            body { background: linear-gradient(145deg, #173a2c 0%, #316b53 100%); }
+        }
+    </style>
 </head>
 <body>
-<div class="login-box">
-<h1>OSMS Login</h1>
-{% if error %}<p class="error-message">{{ error }}</p>{% endif %}
-<form method="POST" style="padding:0; box-shadow:none; max-width:none; margin-top:0;">
-<label>Username:</label>
-<input type="text" name="username" required autofocus>
-<label>Password:</label>
-<input type="password" name="password" required>
-<br><br>
-<button type="submit" class="btn">Log In</button>
-</form>
-</div>
+
+    <!-- LEFT: green panel -->
+    <div class="brand-panel">
+        <div class="brand-content">
+            <span class="brand-tag">Office Supply Management System</span>
+            <h1>Keep every supply accounted for.</h1>
+            <p>Track stock, handle requests, and issue supplies, all in one organized workspace.</p>
+
+            <div class="feature"><span class="feature-dot">✓</span> Real-time inventory monitoring</div>
+            <div class="feature"><span class="feature-dot">✓</span> Multi-level request approval</div>
+            <div class="feature"><span class="feature-dot">✓</span> Printable reports and issuance slips</div>
+        </div>
+    </div>
+
+    <!-- RIGHT: login form -->
+    <div class="form-panel">
+        <div class="login-card">
+            <h2>Welcome back</h2>
+            <p class="subtitle">Sign in to continue to your workspace.</p>
+
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            {% if error %}
+                <div class="alert">{{ error }}</div>
+            {% endif %}
+
+            <form method="POST">
+                <div class="field">
+                    <label for="username">Username</label>
+                    <div class="input-wrap">
+                        <svg class="icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        <input type="text" id="username" name="username" placeholder="Enter your username" required autofocus>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="password">Password</label>
+                    <div class="input-wrap">
+                        <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        <input type="password" id="password" name="password" placeholder="Enter your password" required>
+                        <button type="button" class="toggle-btn" onclick="togglePassword()" aria-label="Show or hide password">
+                            <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="login-btn">Log In</button>
+            </form>
+
+                        <div class="demo-box">
+                <div class="demo-title">Demo accounts</div>
+                <table class="demo-table">
+                    <tr>
+                        <th>Username</th>
+                        <th>Password</th>
+                        <th>Role</th>
+                    </tr>
+                    <tr class="demo-row" onclick="fillLogin('admin', 'admin12345')">
+                        <td class="user">admin</td><td class="pass">admin12345</td><td>Administrator</td>
+                    </tr>
+                    <tr class="demo-row" onclick="fillLogin('requestor', 'requestor1')">
+                        <td class="user">requestor</td><td class="pass">requestor1</td><td>Requestor</td>
+                    </tr>
+                    <tr class="demo-row" onclick="fillLogin('head', 'head12345')">
+                        <td class="user">head</td><td class="pass">head12345</td><td>Department Head</td>
+                    </tr>
+                    <tr class="demo-row" onclick="fillLogin('officer', 'officer1')">
+                        <td class="user">officer</td><td class="pass">officer1</td><td>Supply Officer</td>
+                    </tr>
+                    <tr class="demo-row" onclick="fillLogin('clerk', 'clerkyyy1')">
+                        <td class="user">clerk</td><td class="pass">clerkyyy1</td><td>Clerk</td>
+                    </tr>
+                    <tr class="demo-row" onclick="fillLogin('mgnt', 'management1')">
+                        <td class="user">mgnt</td><td class="pass">management1</td><td>Management</td>
+                    </tr>
+                </table>
+            </div>
+            <p class="footer-note">Authorized personnel only</p>
+        </div>
+    </div>
+
+    <script>
+        // Switch the password box between hidden dots and visible text
+        function togglePassword() {
+            var box = document.getElementById("password");
+            if (box.type === "password") {
+                box.type = "text";
+            } else {
+                box.type = "password";
+            }
+        }
+    </script>
+
 </body>
 </html>
